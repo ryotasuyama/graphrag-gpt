@@ -1,0 +1,9 @@
+langchain>=0.3.4
+langchain-openai
+langchain-community
+langchain-neo4j
+chromadb
+tiktoken
+python-dotenv
+langchain-experimental
+python-dotenv
