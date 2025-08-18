@@ -1,27 +1,20 @@
-
 from pathlib import Path
 import re
 import json
-import argparse
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 import config
-from langchain_community.document_loaders import TextLoader
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
 from langchain_neo4j import Neo4jGraph
 from neo4j.exceptions import ServiceUnavailable
 from langchain_community.graphs.graph_document import GraphDocument, Node, Relationship
 
 # ------------------------------------------------------------
 # 0. 設定
-DATA_DIR = Path("data")  # フォルダを指定
-CHROMA_DIR        = ".chroma"                      # ベクトル DB 保存先
-OPENAI_API_KEY    = config.OPENAI_API_KEY
-NEO4J_URI         = config.NEO4J_URI
-NEO4J_USER        = config.NEO4J_USER
-NEO4J_PASSWORD    = config.NEO4J_PASSWORD
+DATA_DIR = Path("data")
+NEO4J_URI      = config.NEO4J_URI
+NEO4J_USER     = config.NEO4J_USER
+NEO4J_PASSWORD = config.NEO4J_PASSWORD
 # ------------------------------------------------------------
 
 def _normalize_text(text: str) -> str:
@@ -165,9 +158,24 @@ def _parse_api_spec(text: str) -> List[Dict[str, Any]]:
     return entries
 
 
-def _spec_to_graphish_text(specs: List[Dict[str, Any]]) -> str:
-    """抽出仕様の可読化（現状未使用だが将来のデバッグ用に残す）。"""
-    out_lines: List[str] = []
+def _read_api_text() -> str:
+    """data/api.txt を UTF-8 で読み込む。存在しなければ空文字を返す。"""
+    api_path = DATA_DIR / "api.txt"
+    if not api_path.exists():
+        return ""
+    return api_path.read_text(encoding="utf-8")
+
+
+def extract_triples_from_specs(specs: List[Dict[str, Any]]) -> Tuple[List[Dict[str, str]], Dict[str, Dict[str, Any]]]:
+    """specs からトリプル群とノード属性を決定的に抽出する。
+
+    返値:
+      - triples: {source, source_type, label, target, target_type} の配列
+      - node_props: node_id -> {type: Label, properties: {...}}
+    """
+    triples: List[Dict[str, str]] = []
+    node_props: Dict[str, Dict[str, Any]] = {}
+
     for s in specs:
         object_name: str = s.get("object") or "Object"
         method_name: str = s.get("method") or "Method"
@@ -176,325 +184,147 @@ def _spec_to_graphish_text(specs: List[Dict[str, Any]]) -> str:
         ret_type: str = (s.get("return") or {}).get("type") or "ID"
         params: List[Dict[str, str]] = s.get("params") or []
 
-        return_node = f"{method_name}_ReturnValue"
+        return_node_id = f"{method_name}_ReturnValue"
 
-        out_lines.append(f"Object: {object_name}")
-        out_lines.append(f"Method: {method_name}")
-        if method_desc:
-            out_lines.append(f"Method.Description: {method_desc}")
-        out_lines.append(f"ReturnValue: {return_node}")
-        if ret_desc:
-            out_lines.append(f"ReturnValue.Description: {ret_desc}")
-        out_lines.append(f"ReturnValue.Type: {ret_type}")
+        # ノード属性
+        node_props.setdefault(object_name, {"type": "Object", "properties": {"name": object_name}})
+        node_props.setdefault(method_name, {"type": "Method", "properties": {"name": method_name, "description": method_desc}})
+        node_props.setdefault(return_node_id, {"type": "ReturnValue", "properties": {"description": ret_desc}})
+        node_props.setdefault(ret_type, {"type": "DataType", "properties": {"name": ret_type}})
+
+        # リレーション
+        triples.append({"source": object_name, "source_type": "Object", "label": "HAS_METHOD", "target": method_name, "target_type": "Method"})
+        triples.append({"source": method_name, "source_type": "Method", "label": "RETURNS", "target": return_node_id, "target_type": "ReturnValue"})
+        triples.append({"source": return_node_id, "source_type": "ReturnValue", "label": "HAS_TYPE", "target": ret_type, "target_type": "DataType"})
 
         for p in params:
-            pname = p.get("name") or "Param"
-            ptype = p.get("type") or "型"
-            pdesc = p.get("description") or ""
-            out_lines.append(f"Parameter: {pname}")
-            out_lines.append(f"Parameter.{pname}.Type: {ptype}")
-            if pdesc:
-                out_lines.append(f"Parameter.{pname}.Description: {pdesc}")
+            pname: str = p.get("name") or "Param"
+            ptype: str = p.get("type") or "型"
+            pdesc: str = p.get("description") or ""
 
-        out_lines.append("")
+            node_props.setdefault(pname, {"type": "Parameter", "properties": {"name": pname, "description": pdesc}})
+            node_props.setdefault(ptype, {"type": "DataType", "properties": {"name": ptype}})
 
-    return "\n".join(out_lines).strip()
+            triples.append({"source": method_name, "source_type": "Method", "label": "HAS_PARAMETER", "target": pname, "target_type": "Parameter"})
+            triples.append({"source": pname, "source_type": "Parameter", "label": "HAS_TYPE", "target": ptype, "target_type": "DataType"})
 
-
-def preprocess_documents(docs: List[Document]) -> List[Document]:
-    """決定的な正規化のみを行い、ドキュメント本文を整える。"""
-    processed: List[Document] = []
-    for d in docs:
-        content = d.page_content or ""
-        d.page_content = _normalize_text(content)
-        meta = dict(d.metadata or {})
-        meta["preprocessed"] = True
-        d.metadata = meta
-        processed.append(d)
-    return processed
+    return triples, node_props
 
 
-def load_text_documents(data_dir: Path) -> List[Document]:
-    """dataディレクトリ配下の*.txtをLangChain Documentsとして読み込む。"""
-    documents: List[Document] = []
-    for file_path in data_dir.glob("*.txt"):
-        if file_path.is_file():
-            documents.extend(TextLoader(str(file_path)).load())
-    return documents
-
-
-def save_preprocessed_documents(docs: List[Document], out_dir: Path) -> List[Path]:
-    """前処理済みドキュメントをファイルとして保存する。
-
-    各`Document.metadata['source']`のベース名を用いて、`out_dir`直下に書き出す。
-    既存ファイルは上書きする。
-    """
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written_paths: List[Path] = []
-    for d in docs:
-        src = str(d.metadata.get("source") or "")
-        name = Path(src).name or "document.txt"
-        target = out_dir / name
-        with target.open("w", encoding="utf-8") as f:
-            f.write(d.page_content or "")
-        written_paths.append(target)
-    return written_paths
-
-
-def build_graph_json_from_specs(specs: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """_parse_api_spec の出力から sample.json と同一構造の JSON を決定的に構築する。"""
-    nodes: List[Dict[str, Any]] = []
-    relationships: List[Dict[str, str]] = []
-
-    if not specs:
-        return {"nodes": nodes, "relationships": relationships}
-
-    # 現状 api.txt は単一オブジェクト・単一メソッド想定
-    s = specs[0]
-    object_name: str = s.get("object") or "Object"
-    method_name: str = s.get("method") or "Method"
-    method_desc: str = s.get("description") or ""
-    ret_desc: str = (s.get("return") or {}).get("description") or ""
-    ret_type: str = (s.get("return") or {}).get("type") or "ID"
-    params: List[Dict[str, str]] = s.get("params") or []
-
-    created_node_ids: set[str] = set()
-
-    def add_node(node_id: str, labels: List[str], properties: Dict[str, Any]) -> None:
-        if node_id in created_node_ids:
-            return
-        nodes.append({"id": node_id, "labels": labels, "properties": properties})
-        created_node_ids.add(node_id)
-
-    def add_rel(src: str, dst: str, label: str) -> None:
-        relationships.append({"source": src, "target": dst, "label": label})
-
-    # ノード: オブジェクト, メソッド, 返り値, 返り値型(ID)
-    add_node(object_name, ["Object"], {"name": object_name})
-    add_node(method_name, ["Method"], {"name": method_name, "description": method_desc})
-    return_node_id = f"{method_name}_ReturnValue"
-    add_node(return_node_id, ["ReturnValue"], {"description": ret_desc})
-    add_node(ret_type, ["DataType"], {"name": ret_type})
-
-    # リレーション（先頭3件）
-    add_rel(object_name, method_name, "HAS_METHOD")
-    add_rel(method_name, return_node_id, "RETURNS")
-    add_rel(return_node_id, ret_type, "HAS_TYPE")
-
-    # パラメータとデータ型
-    for p in params:
-        pname: str = p.get("name") or "Param"
-        ptype: str = p.get("type") or "型"
-        pdesc: str = p.get("description") or ""
-
-        add_node(pname, ["Parameter"], {"name": pname, "description": pdesc})
-        # データ型ノードは初出時のみ追加
-        add_node(ptype, ["DataType"], {"name": ptype})
-
-        # リレーション（パラメータ関連を順に2本）
-        add_rel(method_name, pname, "HAS_PARAMETER")
-        add_rel(pname, ptype, "HAS_TYPE")
-
-    return {"nodes": nodes, "relationships": relationships}
-
-
-def build_graph_document_from_specs(
-    specs: List[Dict[str, Any]],
-    source: Optional[Document | Dict[str, Any]] = None,
+def build_graph_document_from_triples(
+    triples: List[Dict[str, str]],
+    node_props: Dict[str, Dict[str, Any]],
 ) -> GraphDocument:
-    """_parse_api_spec の出力から GraphDocument を決定的に構築する。"""
-    if not specs:
-        # source は None を許容しないため空の Document を渡す
-        src = source if source is not None else Document(page_content="", metadata={"source": "deterministic"})
-        return GraphDocument(nodes=[], relationships=[], source=src)
-
-    s = specs[0]
-    object_name: str = s.get("object") or "Object"
-    method_name: str = s.get("method") or "Method"
-    method_desc: str = s.get("description") or ""
-    ret_desc: str = (s.get("return") or {}).get("description") or ""
-    ret_type: str = (s.get("return") or {}).get("type") or "ID"
-    params: List[Dict[str, str]] = s.get("params") or []
-
-    created_node_ids: set[str] = set()
-    id_to_node: dict[str, Node] = {}
+    """トリプルとノード属性から GraphDocument を構築する。"""
+    id_to_node: Dict[str, Node] = {}
     nodes: List[Node] = []
     relationships: List[Relationship] = []
 
-    def add_node(node_id: str, node_type: str, properties: Optional[Dict[str, Any]] = None) -> None:
-        if node_id in created_node_ids:
-            return
-        node_obj = Node(id=node_id, type=node_type, properties=properties or {})
-        nodes.append(node_obj)
-        id_to_node[node_id] = node_obj
-        created_node_ids.add(node_id)
+    def ensure_node(node_id: str) -> Node:
+        node = id_to_node.get(node_id)
+        if node is not None:
+            return node
+        meta = node_props.get(node_id, {"type": "Unknown", "properties": {"name": node_id}})
+        node = Node(id=node_id, type=meta.get("type", "Unknown"), properties=meta.get("properties", {}))
+        id_to_node[node_id] = node
+        nodes.append(node)
+        return node
 
-    def add_rel(src: str, dst: str, rel_type: str, properties: Optional[Dict[str, Any]] = None) -> None:
-        src_node = id_to_node.get(src)
-        dst_node = id_to_node.get(dst)
-        if src_node is None or dst_node is None:
-            # 安全のため存在しなければダミー作成（型は Unknown）
-            if src_node is None:
-                add_node(src, "Unknown", {"name": src})
-                src_node = id_to_node[src]
-            if dst_node is None:
-                add_node(dst, "Unknown", {"name": dst})
-                dst_node = id_to_node[dst]
-        relationships.append(
-            Relationship(source=src_node, target=dst_node, type=rel_type, properties=properties or {})
+    for t in triples:
+        src_id = t["source"]
+        dst_id = t["target"]
+        rel_type = t["label"]
+        src_node = ensure_node(src_id)
+        dst_node = ensure_node(dst_id)
+        relationships.append(Relationship(source=src_node, target=dst_node, type=rel_type, properties={}))
+
+    # source にはダミー Document を付与
+    src_doc = Document(page_content="", metadata={"source": "api.txt"})
+    return GraphDocument(nodes=nodes, relationships=relationships, source=src_doc)
+
+
+def _json_literal(value: Any) -> str:
+    """Cypher にインラインで埋め込むための JSON 文字列を返す。"""
+    return json.dumps(value, ensure_ascii=False)
+
+
+def triples_to_cypher(
+    triples: List[Dict[str, str]],
+    node_props: Dict[str, Dict[str, Any]],
+) -> str:
+    """与えられたトリプル群から、同等のグラフを構築する Cypher を生成する。"""
+    lines: List[str] = []
+
+    # ノードを MERGE
+    for node_id, meta in node_props.items():
+        label = meta.get("type", "Unknown")
+        props = dict(meta.get("properties", {}))
+        # id をプロパティにも格納しておく
+        props.setdefault("id", node_id)
+        lines.append(f"MERGE (n:{label} {{id: {_json_literal(node_id)}}}) SET n += {_json_literal(props)};")
+
+    # リレーションを MERGE
+    for t in triples:
+        src = t["source"]
+        dst = t["target"]
+        rel = t["label"]
+        lines.append(
+            """
+MATCH (a {id: %s})
+MATCH (b {id: %s})
+MERGE (a)-[:%s]->(b);
+""".strip()
+            % (_json_literal(src), _json_literal(dst), rel)
         )
 
-    # ノード
-    add_node(object_name, "Object", {"name": object_name})
-    add_node(method_name, "Method", {"name": method_name, "description": method_desc})
-    return_node_id = f"{method_name}_ReturnValue"
-    add_node(return_node_id, "ReturnValue", {"description": ret_desc})
-    add_node(ret_type, "DataType", {"name": ret_type})
-
-    # リレーション
-    add_rel(object_name, method_name, "HAS_METHOD")
-    add_rel(method_name, return_node_id, "RETURNS")
-    add_rel(return_node_id, ret_type, "HAS_TYPE")
-
-    # パラメータ
-    for p in params:
-        pname: str = p.get("name") or "Param"
-        ptype: str = p.get("type") or "型"
-        pdesc: str = p.get("description") or ""
-
-        add_node(pname, "Parameter", {"name": pname, "description": pdesc})
-        add_node(ptype, "DataType", {"name": ptype})
-        add_rel(method_name, pname, "HAS_PARAMETER")
-        add_rel(pname, ptype, "HAS_TYPE")
-
-    src = source if source is not None else Document(page_content="", metadata={"source": "deterministic"})
-    return GraphDocument(nodes=nodes, relationships=relationships, source=src)
+    return "\n".join(lines)
 
 
-def export_graph_json_from_api_doc(docs: List[Document], out_path: Path) -> Optional[Path]:
-    """ドキュメント群から api.txt を探し、JSON を決定的生成して out_path に保存。"""
-    api_doc: Optional[Document] = None
-    for d in docs:
-        src = str(d.metadata.get("source") or "")
-        if src.endswith("api.txt") or src.split("/")[-1] == "api.txt":
-            api_doc = d
-            break
+def _build_and_load_neo4j_from_triples(api_text: str) -> None:
+    """api.txt テキストからトリプル抽出→GraphDocument 構築→Neo4j へ投入。"""
+    if not api_text.strip():
+        raise RuntimeError("api.txt が見つからないか空です。data ディレクトリを確認してください。")
 
-    if api_doc is None:
-        return None
+    specs = _parse_api_spec(api_text)
+    print(f"✔ Parsed api.txt specs: entries={len(specs)}")
+    if not specs:
+        print("⚠ 解析結果が空です。フォーマットをご確認ください。")
 
-    specs = _parse_api_spec(api_doc.page_content or "")
-    data = build_graph_json_from_specs(specs)
-    # 既存 sample.json に合わせてインデント/キー順は標準のまま
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    return out_path
+    triples, node_props = extract_triples_from_specs(specs)
+    print(f"✔ Extracted triples: count={len(triples)}")
 
+    # 参考出力: 生成 Cypher
+    cypher = triples_to_cypher(triples, node_props)
+    print("\n-- Generated Cypher (deterministic) --\n" + cypher + "\n-- End Cypher --\n")
 
-def index_documents_in_chroma(docs: List[Document]) -> None:
-    """前処理済みドキュメントをChromaに登録（OpenAI Embeddings使用）。"""
-    from langchain_openai import OpenAIEmbeddings
-    from langchain_chroma import Chroma
+    # GraphDocument を構築して投入
+    graph_doc = build_graph_document_from_triples(triples, node_props)
 
-    Chroma.from_documents(
-        docs,
-        embedding=OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY),
-        persist_directory=CHROMA_DIR,
-    )
-
-
-def rebuild_neo4j_graph_deterministic(docs: List[Document]) -> None:
-    """決定的ロジックで GraphDocument を構築し、Neo4j を再構築する。"""
-    # api.txt を特定
-    api_doc: Optional[Document] = None
-    for d in docs:
-        src = str(d.metadata.get("source") or "")
-        if src.endswith("api.txt") or src.split("/")[-1] == "api.txt":
-            api_doc = d
-            break
-
-    if api_doc is None:
-        raise RuntimeError("api.txt が見つかりませんでした。data ディレクトリを確認してください。")
-
-    specs = _parse_api_spec(api_doc.page_content or "")
-    print(f"✔ Parsed specs from api.txt: {len(specs)} entries")
-    if specs:
-        first = specs[0]
-        print(f"  object={first.get('object')} method={first.get('method')} params={len(first.get('params') or [])}")
-    doc: GraphDocument = build_graph_document_from_specs(specs, source=api_doc)
-    print(f"✔ Deterministic GraphDocument built: nodes={len(doc.nodes)}, relationships={len(doc.relationships)}")
-    if len(doc.nodes) == 0:
-        print("⚠ 生成された GraphDocument にノードがありません。api.txt のフォーマットをご確認ください。")
-
-    # Neo4j 接続
-    graph = Neo4jGraph(
-        url=NEO4J_URI,
-        username=NEO4J_USER,
-        password=NEO4J_PASSWORD,
-    )
-
-    # 既存グラフをクリア
+    graph = Neo4jGraph(url=NEO4J_URI, username=NEO4J_USER, password=NEO4J_PASSWORD)
     try:
         graph.query("MATCH (n) DETACH DELETE n")
         print("💡 Neo4j graph cleared")
     except ServiceUnavailable as e:
         raise RuntimeError("Neo4j に接続できません。起動を確認してください") from e
 
-    # 追加
-    graph.add_graph_documents([doc], baseEntityLabel=True, include_source=True)
-    # 検証用にノード/リレーション数を確認
+    graph.add_graph_documents([graph_doc], baseEntityLabel=True, include_source=True)
+
+    # 検証
     try:
         node_count = graph.query("MATCH (n) RETURN count(n) AS c")[0]["c"]
         rel_count = graph.query("MATCH ()-[r]-() RETURN count(r) AS c")[0]["c"]
-        print(f"✔ Graph DB rebuilt from deterministic spec (api.txt): nodes={node_count}, relationships={rel_count}")
+        print(f"✔ Graph DB rebuilt from triples: nodes={node_count}, relationships={rel_count}")
     except Exception as e:
         print(f"⚠ 検証クエリに失敗しました: {e}")
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingest pipeline with optional deterministic JSON export (no LLM)")
-    parser.add_argument("--export-json", dest="export_json", type=str, default=None,
-                        help="LLM を使わずに api.txt から決定的 JSON を生成して保存する出力先パス")
-    # 旧 --no-llm オプションは廃止（常に決定的ロジックを使用）
-    parser.add_argument("--preprocess-only", dest="preprocess_only", action="store_true",
-                        help="前処理のみ実行。Chroma/LLM/Neo4j 処理を全てスキップする")
-    parser.add_argument("--preprocess-out", dest="preprocess_out", type=str, default=None,
-                        help="前処理済みテキストを書き出すディレクトリ（指定時はファイル保存する）")
-    parser.add_argument("--skip-embeddings", dest="skip_embeddings", action="store_true",
-                        help="前処理後のベクトルDB登録（OpenAI Embeddings）をスキップする")
-    args = parser.parse_args()
-    # 1. ドキュメント読み込み（dataフォルダ内の全ファイル）
-    docs = load_text_documents(DATA_DIR)
+    # api.txt を直接読み込み → そのまま投入
+    api_text = _read_api_text()
+    # 正規化してから解析
+    api_text = _normalize_text(api_text)
+    _build_and_load_neo4j_from_triples(api_text)
 
-    # 1-B. 前処理
-    docs = preprocess_documents(docs)
-    print("✔ Preprocessed text for graph extraction")
-    # 1-C. 前処理結果の保存（任意）
-    if args.preprocess_out:
-        out_dir = Path(args.preprocess_out)
-        written = save_preprocessed_documents(docs, out_dir)
-        print(f"✔ Wrote {len(written)} preprocessed files -> {out_dir}")
-
-    # 2. ベクトル DB へ登録（Chroma は 0.4+ で自動永続化）
-    # 前処理のみ/スキップ指定でない場合のみ実行
-    if not args.preprocess_only and not args.skip_embeddings:
-        index_documents_in_chroma(docs)
-        print("✔ Vector DB updated (.chroma)")
-
-    # 2-B. LLM を使わない決定的 JSON エクスポート
-    if args.export_json:
-        out_path = export_graph_json_from_api_doc(docs, Path(args.export_json))
-        if out_path is None:
-            print("⚠ api.txt が見つからないため JSON を出力できませんでした")
-        else:
-            print(f"✔ Exported deterministic graph JSON -> {out_path}")
-
-    # 前処理のみモードならここで終了
-    if args.preprocess_only:
-        return
-
-    # 3-5. 決定的ロジックにより Neo4j を再構築
-    rebuild_neo4j_graph_deterministic(docs)
 
 if __name__ == "__main__":
     main()

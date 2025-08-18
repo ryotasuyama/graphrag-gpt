@@ -18,57 +18,6 @@
         Section2End1,　// 長さ： プレートソリッドの平面上の方向２の境界位置の座標値１
         Section2End2,　// 長さ： プレートソリッドの平面上の方向２の境界位置の座標値２
         bUpdate ); // bool：更新フラグ（未実装、使用しない）
-〇変数要素の作成
-　返り値:作成された変数要素の要素ID
-　CreateVariable(
-        VariableName, // 文字列：作成する変数名称（空文字不可）
-        VariableValue,// 浮動小数点: 変数の値
-        VariableUnit  // 変数単位：作成する変数の単位を指定
-        VariableElementGroup );// 要素グループ：作成する変数要素を要素グループに入れる場合は要素グループを指定（空文字可）
-
-〇スケッチ平面の作成
-  返り値:作成されたスケッチ平面要素の要素ID
-  CreateSketchPlane(
-        ElementName,  // 文字列：作成するスケッチ平面名称（空文字可）
-        ElementGroup, // 要素グループ：作成するスケッチ平面を要素グループに入れる場合は要素グループを指定（空文字可）
-        PlaneDef, 　　// 平面：スケッチ平面を作成する平面を指定する
-        PlaneOffset,  // 長さ：平面からのオフセット距離を指定
-        bRevPlane,    // bool:スケッチ平面を反転するかどうかのフラグ(bool)
-        bRevUV,       // bool:スケッチ平面のX,Y軸を交換するかどうかのフラグ(bool)
-        StyleName,    // 注記スタイル:　スケッチ平面に適用する注記スタイル名称（空文字可）
-        OriginPoint,  // 点：スケッチ平面の原点を指定（空文字可）
-        AxisDirection,// 方向：スケッチ平面の軸方向を指定（空文字可）
-        bDefAxisIsX,  // bool：スケッチ平面のX実を指定する場合はTrue(bool)
-        bUpdate );    // bool：更新フラグ（未実装、使用しない）
-
-
-〇スケッチレイヤーの作成
-  返り値:作成されたスケッチレイヤー要素の要素ID
-  CreateSketchLayer(
-        SketchLayerName,  // 文字列：作成するスケッチレイヤー名称（空文字可）
-        SketchPlane );　　// 要素：レイヤーを作成するスケッチ要素
-
-〇スケッチ直線作成
-  返り値:作成されたスケッチ直線要素の要素ID
-  CreateSketchLine(
-        SketchPlane,   // 要素：直線を作成するスケッチ要素
-        SketchLineName,// 文字列：作成するスケッチ直線名称（空文字可）
-        SketchLayer,   // 要素：直線を作成するスケッチレイヤー(空文字可）
-        StartPoint,    // 点(2D)：始点
-        EndPoint,      // 点(2D)：終点
-        bUpdate );     // bool：更新フラグ（未実装、使用しない）
-
-〇スケッチ円弧を中心点と始終点を指定して作成
-  返り値:作成されたスケッチ円弧要素の要素ID
-  CreateSketchArc(
-        SketchPlane,   // 要素：円弧を作成するスケッチ要素
-        SketchArcName, // 文字列：作成するスケッチ円弧名称（空文字可）
-        SketchLayer,   // 要素：円弧を作成するスケッチレイヤー(空文字可）
-        CenterPoint,   // 点(2D)：中心点
-        StartPoint,    // 点(2D)：始点
-        EndPoint,      // 点(2D)：終点
-        bCCW,          // bool： 円弧の回転方向Trueの場合は反時計周り
-        bUpdate );     // bool：更新フラグ（未実装、使用しない）
 
 〇スケッチ円弧を周上の３点を指定して作成
   返り値:作成されたスケッチ円弧要素の要素ID
@@ -81,14 +30,3 @@
         EndPoint,      // 点(2D)：終点
         bUpdate );     // bool：更新フラグ（未実装、使用しない）
  
-〇スケッチ円を中心点を指定して作成
-  返り値:作成されたスケッチ円要素の要素ID
-  CreateSketchCircle(
-        SketchPlane,   // 要素：円を作成するスケッチ要素
-        SketchArcName, // 文字列：作成するスケッチ円名称（空文字可）
-        SketchLayer,   // 要素：円を作成するスケッチレイヤー(空文字可）
-        Centeroint,    // 点(2D)：中心点
-        RadiusOrDiameter, // 長さ：半径または直径
-        bDiameter,     // bool：直径を指定する場合はTrue
-        bCCW,          // bool：円の回転方向Trueの場合は反時計周り
-        bUpdate );     // bool：更新フラグ（未実装、使用しない）
