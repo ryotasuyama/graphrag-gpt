@@ -1,34 +1,34 @@
-# GraphRAG Demo
+# GraphRAG GPT
 
-このプロジェクトは、ベクトル検索とグラフ検索を組み合わせたGraphRAG（Graph Retrieval-Augmented Generation）のデモンストレーションです。文書をベクトルデータベース（Chroma）とグラフデータベース（Neo4j）の両方に保存し、質問に対して2つの異なる検索方法で回答を生成できます。
+このプロジェクトは、ベクトル検索（Chroma）とグラフ検索（Neo4j）を組み合わせた GraphRAG（Graph Retrieval-Augmented Generation）の最小実装です。`data/api.txt` をソースとして決定的なロジックで知識グラフを構築し、検索は「ベクトル」または「グラフ」ルートを選択して実行できます。
 
-## 🚀 機能
+## 🚀 特徴
 
-- **ベクトル検索**: Chromaを使用したセマンティック検索
-- **グラフ検索**: Neo4jを使用したグラフベース検索
-- **自動文書処理**: Markdownファイルから知識グラフを自動生成
-- **柔軟な検索**: 同じ質問に対して異なる検索方法を選択可能
+- ベクトル検索: Chroma + OpenAI Embeddings によるセマンティック検索
+- グラフ検索: Neo4j + Cypher 生成チェーンによるグラフQA
+- LLMレスな取り込み: `api.txt` を決定的に解析し、安定したグラフ構造（`sample.json` 同等形式）を生成
+- 冪等な再構築: 取り込み時にNeo4jを初期化して再構築（実行毎に同じ結果）
 
 ## 📋 前提条件
 
 - Python 3.8以上
-- Neo4jデータベース（ローカルまたはクラウド）
-- OpenAI APIキー
+- Neo4j（ローカルまたはクラウド）
+- OpenAI互換APIキー（Embeddings および Chat モデル用）
 
 ## 🛠️ セットアップ
 
 ### 1. リポジトリのクローン
 ```bash
 git clone <repository-url>
-cd graphrag_demo0624
+cd graphrag-gpt
 ```
 
-### 2. 仮想環境の作成とアクティベート
+### 2. 仮想環境の作成と有効化
 ```bash
 python -m venv venv
 source venv/bin/activate  # macOS/Linux
-# または
-venv\Scripts\activate     # Windows
+# or
+venv\Scripts\activate    # Windows
 ```
 
 ### 3. 依存関係のインストール
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 ```
 
 ### 4. 環境変数の設定
-`.env`ファイルを作成し、以下の内容を設定してください：
+リポジトリ直下に `.env` を作成し、以下を設定してください。
 
 ```env
 NEO4J_URI=bolt://localhost:7687
@@ -46,123 +46,96 @@ NEO4J_PASSWORD=your_password
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-### 5. Neo4jの起動
-Neo4jデータベースが起動していることを確認してください。
+### 5. Neo4j の起動
+Neo4j が起動済みで、URI/ユーザー/パスワードが正しいことを確認してください。
 
-## 📖 使用方法
+## 📖 使い方
 
-### 基本的な実行
+### 取り込み（ingest）
 
-1. **初回実行（データの取り込み）**:
-```bash
-python main.py
-```
-初回実行時は自動的に`ingest.py`が実行され、サンプルデータがベクトルDBとグラフDBに取り込まれます。
-
-2. **質問の実行**:
-```bash
-# ベクトル検索を使用（デフォルト）
-python query.py "スケッチ平面の作成方法を教えてください"
-
-# グラフ検索を使用
-python query.py "スケッチ平面の作成方法を教えてください" graph
-```
-
-### 個別のスクリプト実行
-
-#### データの取り込み
 ```bash
 python ingest.py
 ```
-- `data/sample.md`の内容をベクトルDB（Chroma）とグラフDB（Neo4j）に取り込みます
-- グラフDBは毎回初期化されてから新しいデータが挿入されます
 
-#### 質問の実行
+- `data/` 配下の `*.txt` を読み込み、前処理後に Chroma へ登録します。
+- `data/api.txt` を解析し、決定的ロジックでグラフを組み立て Neo4j を再構築します。
+- 実行時、Neo4j 上の既存ノード/リレーションは削除されます（`MATCH (n) DETACH DELETE n`）。
+
+主なオプション:
+
+- 前処理のみ（ベクトル登録・Neo4j再構築を行わない）
+  ```bash
+  python ingest.py --preprocess-only
+  ```
+- 前処理結果の書き出し
+  ```bash
+  python ingest.py --preprocess-out ./.preprocessed
+  ```
+- Embeddings 登録をスキップ
+  ```bash
+  python ingest.py --skip-embeddings
+  ```
+- 解析結果を JSON でエクスポート（`sample.json` と同形式）
+  ```bash
+  python ingest.py --export-json ./graph.json
+  ```
+
+### 質問（query）
+
 ```bash
-# ベクトル検索
-python query.py "質問文" vector
+# ベクトル検索（既定）
+python query.py "スケッチ平面の作成方法を教えてください"
 
 # グラフ検索
-python query.py "質問文" graph
+python query.py "スケッチ平面の作成方法を教えてください" graph
 ```
 
-## 📁 プロジェクト構造
+`vector`/`graph` を明示しない場合は `vector` が選択されます。
+
+## 📁 プロジェクト構成
 
 ```
-graphrag_demo0624/
-├── config.py          # 設定ファイル（環境変数管理）
-├── ingest.py          # データ取り込みスクリプト
-├── query.py           # 質問実行スクリプト
-├── main.py            # メインランチャー
-├── requirements.txt   # Python依存関係
+graphrag-gpt/
+├── config.py         # 環境変数読み込み
+├── ingest.py         # 取り込み: 前処理, Chroma登録, Neo4j再構築, JSON出力
+├── query.py          # 質問実行: vector / graph ルート
+├── requirements.txt  # 依存関係
 ├── data/
-│   └── sample.md      # サンプルデータ
-├── .chroma/           # ChromaベクトルDB（自動生成）
-└── venv/              # 仮想環境
+│   └── api.txt       # 解析対象API仕様（テキスト）
+├── sample.json       # 決定的ロジックの出力例
+└── venv/             # 仮想環境（任意）
 ```
 
-## 🔧 設定
+## 🔧 設定の要点
 
-### config.py
-- Neo4j接続情報
-- OpenAI APIキー
-- 環境変数からの読み込み
+- `config.py`: `.env` を読み込んで `NEO4J_*` と `OPENAI_API_KEY` を使用します。
+- `ingest.py`: Chroma の保存先は `.chroma`（自動生成）。決定的ロジックで Neo4j を毎回初期化して再構築します。
+- `query.py`: 既定ルートは `vector`。モデル名は必要に応じて調整してください。
 
-### カスタマイズ可能な設定（ingest.py）
-- `DOC_PATH`: 取り込む文書のパス
-- `CHROMA_DIR`: ベクトルDBの保存先
-- LLMモデル: 現在は`gpt-4o-mini`を使用
+## 🔍 ヒント（検索の使い分け）
 
-## 🤖 技術スタック
+- ベクトル検索（vector）: 用語や記述の曖昧さに強い、質問応答全般に適合。
+- グラフ検索（graph）: エンティティや関係性に基づく正確な抽出が必要な場合に有効。
 
-- **LangChain**: LLM統合とチェーン管理
-- **Chroma**: ベクトルデータベース
-- **Neo4j**: グラフデータベース
-- **OpenAI GPT-4o-mini**: 言語モデル
-- **LLMGraphTransformer**: 文書からグラフへの変換
+## 📝 付属データ
 
-## 🔍 検索方法の違い
+`data/api.txt` は 3D CAD ツールのコマンドスクリプト API 仕様の一部です。例:
 
-### ベクトル検索（Vector）
-- セマンティック類似性に基づく検索
-- 文書の意味的な関連性を考慮
-- 高速で柔軟な検索
-
-### グラフ検索（Graph）
-- エンティティ間の関係性を考慮した検索
-- 構造化された情報の抽出
-- より正確な関係性の理解
-
-## 📝 サンプルデータ
-
-現在のサンプルデータ（`data/sample.md`）は、Evpshipという3DCADツールのコマンドスクリプトAPI仕様書です。このデータから以下のような質問が可能です：
-
-- "スケッチ平面の作成方法を教えてください"
-- "CreateSketchPlane関数のパラメータは？"
-- "スケッチ平面の軸方向はどう指定する？"
+- 「CreateSketchPlane のパラメータは？」
+- 「スケッチ平面の軸方向はどう指定する？」
 
 ## 🚨 トラブルシューティング
 
-### Neo4j接続エラー
-```
-RuntimeError: Neo4j に接続できません。起動を確認してください
-```
-- Neo4jデータベースが起動していることを確認
-- 接続情報（URI、ユーザー名、パスワード）が正しいことを確認
+- Neo4j 接続エラー:
+  - Neo4j が起動しているか、`NEO4J_URI/USERNAME/PASSWORD` が正しいか確認
+  - 例外: `RuntimeError: Neo4j に接続できません。起動を確認してください`
+- OpenAI API エラー:
+  - `OPENAI_API_KEY` の設定、利用上限を確認
+- 依存関係エラー:
+  ```bash
+  pip install -r requirements.txt --upgrade
+  ```
 
-### OpenAI APIエラー
-- APIキーが正しく設定されていることを確認
-- APIクォータが残っていることを確認
+## 📄 ライセンス / 🤝 貢献
 
-### 依存関係エラー
-```bash
-pip install -r requirements.txt --upgrade
-```
-
-## 📄 ライセンス
-
-このプロジェクトはデモンストレーション目的で作成されています。
-
-## 🤝 貢献
-
-バグ報告や機能要望は、GitHubのIssueでお知らせください。 
+デモ用途のサンプルです。バグ報告や要望は Issue でお知らせください。
