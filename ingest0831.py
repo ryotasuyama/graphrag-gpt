@@ -1,3 +1,6 @@
+from tree_sitter import Language, Parser
+import tree_sitter_python as tspython
+
 from pathlib import Path
 import re
 import json
@@ -24,12 +27,16 @@ API_TXT_CANDIDATES = [
     DATA_DIR / "api.txt",
 ]
 
-
 API_ARG_TXT_CANDIDATES = [
     Path("/mnt/data/api_arg.txt"),
     Path("api_arg.txt"),
     DATA_DIR / "api_arg.txt",
 ]
+
+# tree-sitterのPython用パーサーをセットアップ
+PY_LANGUAGE = Language(tspython.language())
+parser = Parser(PY_LANGUAGE)
+
 
 CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 OPENAI_API_KEY = config.OPENAI_API_KEY
@@ -48,6 +55,20 @@ def _read_api_arg_text() -> str:
         if p.exists():
             return p.read_text(encoding="utf-8")
     raise FileNotFoundError("api_arg.txt が見つかりませんでした。")
+
+def _read_script_files() -> List[Tuple[str, str]]:
+    """data ディレクトリ内の .py ファイルをすべて読み込む"""
+    script_files = []
+    if not DATA_DIR.exists():
+        return []
+    
+    # data ディレクトリ内の .py ファイルを探索
+    for p in DATA_DIR.glob("*.py"):
+        if p.is_file():
+            # (ファイル名, ファイルの内容) のタプルを追加
+            script_files.append((p.name, p.read_text(encoding="utf-8")))
+            
+    return script_files
 
 def _normalize_text(text: str) -> str:
     """
@@ -222,7 +243,6 @@ def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
     return descriptions
 
 
-
 def extract_triples_from_specs(
     api_text: str, type_descriptions: Dict[str, str]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
@@ -333,30 +353,137 @@ def extract_triples_from_specs(
 
     return triples, node_props
 
+def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, str]]:
+    """
+    tree-sitter を使ってスクリプトからAPIメソッドの呼び出しを抽出する
+    """
+    tree = parser.parse(bytes(script_text, "utf8"))
+    root_node = tree.root_node
+    
+    calls = []
+    
+    def find_calls(node):
+        if node.type == 'call':
+            # `object.method()` の形式を特定
+            function_node = node.child_by_field_name('function')
+            if function_node and function_node.type == 'attribute':
+                obj_node = function_node.child_by_field_name('object')
+                method_node = function_node.child_by_field_name('attribute')
+                args_node = node.child_by_field_name('arguments')
+                
+                if obj_node and method_node and args_node:
+                    call_info = {
+                        "object_name": obj_node.text.decode('utf8'),
+                        "method_name": method_node.text.decode('utf8'),
+                        "arguments": args_node.text.decode('utf8'),
+                        "full_text": node.text.decode('utf8'),
+                    }
+                    calls.append(call_info)
+
+        for child in node.children:
+            find_calls(child)
+
+    find_calls(root_node)
+    return calls
+
+def extract_triples_from_script(
+    script_path: str, script_text: str
+) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """
+    スクリプト例のテキストから、ノード/リレーションのトリプルを生成する
+    """
+    method_calls = _extract_method_calls_from_script(script_text)
+
+    triples: List[Dict[str, Any]] = []
+    node_props: Dict[str, Dict[str, Any]] = {}
+    
+    # スクリプト全体を表すノード
+    script_node_id = script_path
+    node_props[script_node_id] = {
+        "type": "ScriptExample",
+        "properties": {"name": script_path}
+    }
+    
+    prev_call_node_id = None
+    
+    for i, call in enumerate(method_calls):
+        method_name = call["method_name"]
+        call_node_id = f"{script_path}_call_{i}"
+        
+        ### ▼▼▼ ここから修正 ▼▼▼
+        # メソッド呼び出しノード
+        # プロパティを'code'に一本化し、冗長な'arguments'を削除
+        node_props[call_node_id] = {
+            "type": "MethodCall",
+            "properties": {
+                "code": call["full_text"], # プロパティ名を 'name' から 'code' に変更し、完全なテキストを格納
+                "order": i
+                # "arguments": call["arguments"] <-- この行を削除
+            }
+        }
+        ### ▲▲▲ 修正ここまで ▲▲▲
+        
+        # 関係: ScriptExample -CONTAINS-> MethodCall
+        triples.append({
+            "source": script_node_id, "source_type": "ScriptExample",
+            "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
+        })
+        
+        # 関係: MethodCall -CALLS-> Method (API仕様書で定義されたメソッド)
+        # 既存のMethodノードに接続する
+        triples.append({
+            "source": call_node_id, "source_type": "MethodCall",
+            "label": "CALLS", "target": method_name, "target_type": "Method"
+        })
+        
+        # 関係: MethodCall -NEXT-> MethodCall (呼び出し順序)
+        if prev_call_node_id:
+            triples.append({
+                "source": prev_call_node_id, "source_type": "MethodCall",
+                "label": "NEXT", "target": call_node_id, "target_type": "MethodCall"
+            })
+        
+        prev_call_node_id = call_node_id
+
+    return triples, node_props
+
 def _triples_to_graph_documents(triples: List[Dict[str, Any]], node_props: Dict[str, Dict[str, Any]]) -> List[GraphDocument]:
     """
     トリプルとノード属性から GraphDocument 群を作る
     """
     node_map: Dict[str, Node] = {}
     for node_id, meta in node_props.items():
-        ntype = meta["type"]
-        props = meta.get("properties", {})
-        node_map[node_id] = Node(id=node_id, type=ntype, properties=props)
+        if node_id in node_map:
+            existing_node = node_map[node_id]
+            existing_node.properties.update(meta.get("properties", {}))
+        else:
+            ntype = meta["type"]
+            props = meta.get("properties", {})
+            node_map[node_id] = Node(id=node_id, type=ntype, properties=props)
+
 
     rels: List[Relationship] = []
     for t in triples:
-        src = node_map[t["source"]]
-        tgt = node_map[t["target"]]
+        source_node = node_map.get(t["source"])
+        if not source_node:
+            source_node = Node(id=t["source"], type=t["source_type"])
+            node_map[t["source"]] = source_node
+
+        target_node = node_map.get(t["target"])
+        if not target_node:
+            target_node = Node(id=t["target"], type=t["target_type"])
+            node_map[t["target"]] = target_node
+
         rels.append(
             Relationship(
-                source=src,
-                target=tgt,
+                source=source_node,
+                target=target_node,
                 type=t["label"],
                 properties={}
             )
         )
 
-    doc = Document(page_content="API Spec graph")
+    doc = Document(page_content="API Spec and Example graph")
     gdoc = GraphDocument(nodes=list(node_map.values()), relationships=rels, source=doc)
     return [gdoc]
 
@@ -372,6 +499,7 @@ def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
         database=NEO4J_DATABASE,
     )
     
+    print("🧹 Neo4jの既存データを削除中...")
     delete_query = "MATCH (n) DETACH DELETE n"
     graph.query(delete_query)
     
@@ -382,7 +510,6 @@ def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
     res_nodes = graph.query("MATCH (n) RETURN count(n) AS c")
     res_rels = graph.query("MATCH ()-[r]->() RETURN count(r) AS c")
     return int(res_nodes[0]["c"]), int(res_rels[0]["c"])
-
 
 
 def _build_and_load_chroma_from_specs(entries: List[Dict[str, Any]]) -> None:
@@ -427,31 +554,74 @@ def _build_and_load_chroma_from_specs(entries: List[Dict[str, Any]]) -> None:
     except Exception as e:
         print(f"⚠ Chroma DBの作成に失敗しました: {e}")
 
-def _build_and_load_neo4j_from_triples(api_text: str, type_descriptions: Dict[str, str]) -> None:
-    triples, node_props = extract_triples_from_specs(api_text, type_descriptions)
-    gdocs = _triples_to_graph_documents(triples, node_props)
+### ▼▼▼ 変更点 2: グラフ構築処理の修正 ▼▼▼
+def _build_and_load_neo4j() -> None:
+    # --- 1. API仕様書 (api.txt, api_arg.txt) の解析 ---
+    print("📄 API仕様書を解析中...")
+    api_text = _read_api_text()
+    api_text = _normalize_text(api_text)
+    api_arg_text = _read_api_arg_text()
+    type_descriptions = _parse_data_type_descriptions(api_arg_text)
+    
+    # API仕様書からトリプルとノードプロパティを抽出
+    spec_triples, spec_node_props = extract_triples_from_specs(api_text, type_descriptions)
+    print(f"✔ API仕様書からトリプルを抽出: {len(spec_triples)} 件")
+
+    # --- 2. スクリプト例 (data/*.py) の解析 ---
+    print("\n🐍 スクリプト例 (data/*.py) を解析中...")
+    script_files = _read_script_files()
+    
+    # .py ファイルが存在しない場合はスキップ
+    if not script_files:
+        print("⚠ data ディレクトリに解析対象の .py ファイルが見つかりませんでした。スクリプト例の解析をスキップします。")
+        script_triples, script_node_props = [], {}
+    else:
+        # 見つかった全スクリプトの情報を集約する変数
+        all_script_triples = []
+        all_script_node_props = {}
+        
+        # 各スクリプトファイルをループで解析
+        for script_path, script_text in script_files:
+            print(f"  - ファイルを解析中: {script_path}")
+            # スクリプトからトリプルとノードプロパティを抽出
+            triples, node_props = extract_triples_from_script(script_path, script_text)
+            all_script_triples.extend(triples)
+            all_script_node_props.update(node_props)
+            
+        script_triples = all_script_triples
+        script_node_props = all_script_node_props
+        print(f"✔ スクリプト例からトリプルを総計: {len(script_triples)} 件")
+
+
+    # --- 3. データの統合とグラフ構築 ---
+    print("\n🔗 データを統合してグラフを構築中...")
+    # API仕様とスクリプト例のデータを結合
+    all_triples = spec_triples + script_triples
+    # ノードプロパティをマージ (スクリプト例のデータで上書き)
+    all_node_props = spec_node_props
+    all_node_props.update(script_node_props)
+
+    gdocs = _triples_to_graph_documents(all_triples, all_node_props)
 
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
-        print(f"✔ Graph DB rebuilt from triples: nodes={node_count}, relationships={rel_count}")
+        print(f"✔ グラフデータベースの再構築が完了しました: ノード={node_count}, リレーションシップ={rel_count}")
     except ServiceUnavailable as se:
-        print(f"Neo4j 接続に失敗しました: {se}")
+        print(f"⚠ Neo4j への接続に失敗しました: {se}")
+        print("   Neo4jサーバーが起動しているか確認してください。")
     except Exception as e:
-        print(f"⚠ 検証クエリに失敗しました: {e}")
-
-
+        print(f"⚠ グラフデータベースの構築中にエラーが発生しました: {e}")
+### ▲▲▲ 変更ここまで ▲▲▲
 
 def main() -> None:
-    # api.txt と api_arg.txt を読み込み、正規化
+    # グラフデータベース (Neo4j) を構築
+    _build_and_load_neo4j()
+
+    # ベクトルデータベース (Chroma) を構築
+    # (これはAPI仕様書の情報のみで行う)
     api_text = _read_api_text()
     api_text = _normalize_text(api_text)
-    
-    api_arg_text = _read_api_arg_text()
-    
     api_entries = _parse_api_specs(api_text)
-    type_descriptions = _parse_data_type_descriptions(api_arg_text)
-
-    _build_and_load_neo4j_from_triples(api_text, type_descriptions)
     _build_and_load_chroma_from_specs(api_entries)
 
 if __name__ == "__main__":
