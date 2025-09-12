@@ -245,7 +245,7 @@ def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
 
 def extract_triples_from_specs(
     api_text: str, type_descriptions: Dict[str, str]
-) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
     仕様テキストからノード/リレーションのトリプルを生成する。
     DataTypeノードにはapi_arg.txtから抽出した説明(description)を追加する。
@@ -388,7 +388,7 @@ def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, str]]:
 
 def extract_triples_from_script(
     script_path: str, script_text: str
-) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
     スクリプト例のテキストから、ノード/リレーションのトリプルを生成する
     """
@@ -508,10 +508,10 @@ def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
     res_rels = graph.query("MATCH ()-[r]->() RETURN count(r) AS c")
     return int(res_nodes[0]["c"]), int(res_rels[0]["c"])
 
-### ▼▼▼ 変更点 1: ChromaDB構築関数を修正 ▼▼▼
+
 def _build_and_load_chroma(
     api_entries: List[Dict[str, Any]], script_files: List[Tuple[str, str]]
-) -> None:
+    ) -> None:
     """
     API仕様とスクリプト例からベクトルDB (Chroma) を構築・永続化する
     """
@@ -570,7 +570,6 @@ def _build_and_load_chroma(
         )
     except Exception as e:
         print(f"⚠ Chroma DBの作成に失敗しました: {e}")
-### ▲▲▲ 変更ここまで ▲▲▲
 
 
 def _build_and_load_neo4j() -> None:
@@ -630,7 +629,6 @@ def _build_and_load_neo4j() -> None:
     except Exception as e:
         print(f"⚠ グラフデータベースの構築中にエラーが発生しました: {e}")
 
-### ▼▼▼ 変更点 2: main関数を修正 ▼▼▼
 def main() -> None:
     # グラフデータベース (Neo4j) を構築
     _build_and_load_neo4j()
@@ -652,7 +650,6 @@ def main() -> None:
     # API仕様とスクリプト例の両方の情報を渡してChromaDBを構築
     _build_and_load_chroma(api_entries, script_files)
 
-### ▲▲▲ 変更ここまで ▲▲▲
 
 if __name__ == "__main__":
     main()
