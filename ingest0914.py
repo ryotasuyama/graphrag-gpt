@@ -7,6 +7,12 @@ import json
 from typing import List, Dict, Any, Optional, Tuple
 import shutil
 
+# ▼▼▼ 追加 ▼▼▼
+from bs4 import BeautifulSoup
+from langchain_openai import ChatOpenAI
+from langchain_experimental.graph_transformers import LLMGraphTransformer
+# ▲▲▲ 追加 ▲▲▲
+
 import config, logging
 from langchain_core.documents import Document
 from langchain_neo4j import Neo4jGraph
@@ -69,6 +75,56 @@ def _read_script_files() -> List[Tuple[str, str]]:
             script_files.append((p.name, p.read_text(encoding="utf-8")))
             
     return script_files
+
+def _read_html_files() -> List[Tuple[str, str]]:
+    """data ディレクトリ内の .html ファイルをすべて読み込む"""
+    html_files = []
+    if not DATA_DIR.exists():
+        return []
+    
+    # data ディレクトリ内の .html ファイルを探索
+    for p in DATA_DIR.glob("*.html"):
+        if p.is_file():
+            # (ファイル名, ファイルの内容) のタプルを追加
+            # ※ HTMLはshift_jisの可能性があるためエンコーディングを指定
+            try:
+                content = p.read_text(encoding="shift_jis")
+            except UnicodeDecodeError:
+                content = p.read_text(encoding="utf-8") # utf-8も試す
+            html_files.append((p.name, content))
+            
+    return html_files
+
+def _extract_graph_from_html(
+    file_name: str, html_content: str
+) -> List[GraphDocument]:
+    """
+    LLMGraphTransformer を使用してHTMLコンテンツからグラフドキュメントを抽出する。
+    """
+    # LLMとGraphTransformerを初期化
+    # ※モデル名は適宜変更してください (例: "gpt-4-turbo", "gpt-3.5-turbo")
+    llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY)
+    llm_transformer = LLMGraphTransformer(llm=llm)
+
+    # BeautifulSoupでHTMLから主要なテキストコンテンツを抽出
+    soup = BeautifulSoup(html_content, 'lxml')
+    
+    # class="contents" のdivがあればそこを優先、なければbody全体
+    content_div = soup.find('div', class_='contents')
+    if content_div:
+        text_content = content_div.get_text(separator='\n', strip=True)
+    else:
+        text_content = soup.body.get_text(separator='\n', strip=True)
+
+    # LLMに入力するDocumentを作成
+    doc = Document(
+        page_content=text_content,
+        metadata={"source": "html_document", "file_name": file_name}
+    )
+    
+    # グラフドキュメントに変換
+    return llm_transformer.convert_to_graph_documents([doc])
+
 
 def _normalize_text(text: str) -> str:
     """
@@ -513,7 +569,7 @@ def _build_and_load_chroma(
     api_entries: List[Dict[str, Any]], script_files: List[Tuple[str, str]]
     ) -> None:
     """
-    API仕様とスクリプト例からベクトルDB (Chroma) を構築・永続化する
+    API仕様とスクリプト例、HTMLドキュメントからベクトルDB (Chroma) を構築・永続化する
     """
     print("\n🚀 ChromaDBのベクトルデータを生成・保存中...")
 
@@ -555,6 +611,23 @@ def _build_and_load_chroma(
         metadata = {
             "source": "script_example",  # ソース種別を明記
             "script_name": script_name,
+        }
+        docs_for_vectorstore.append(Document(page_content=content, metadata=metadata))
+
+    # 3. HTMLドキュメントからドキュメントを生成
+    html_files = _read_html_files()
+    for file_name, html_content in html_files:
+        soup = BeautifulSoup(html_content, 'lxml')
+        content_div = soup.find('div', class_='contents')
+        if content_div:
+            text_content = content_div.get_text(separator='\n', strip=True)
+        else:
+            text_content = soup.body.get_text(separator='\n', strip=True)
+        
+        content = f"ドキュメント: {file_name}\n\n{text_content}"
+        metadata = {
+            "source": "html_document",
+            "file_name": file_name,
         }
         docs_for_vectorstore.append(Document(page_content=content, metadata=metadata))
 
@@ -615,10 +688,31 @@ def _build_and_load_neo4j() -> None:
     # API仕様とスクリプト例のデータを結合
     all_triples = spec_triples + script_triples
     # ノードプロパティをマージ (スクリプト例のデータで上書き)
-    all_node_props = spec_node_props
+    all_node_props = spec_node_props.copy()
     all_node_props.update(script_node_props)
 
     gdocs = _triples_to_graph_documents(all_triples, all_node_props)
+    
+    # --- 4. 非構造化データ (HTML) の解析 ---
+    print("\n📄 HTMLドキュメントをLLMで解析中...")
+    html_files = _read_html_files()
+    if not html_files:
+        print("⚠ data ディレクトリに解析対象の .html ファイルが見つかりませんでした。")
+    else:
+        html_graph_docs = []
+        for file_name, html_content in html_files:
+            print(f"  - ファイルを解析中: {file_name}")
+            try:
+                # 各HTMLからGraphDocumentを抽出
+                graph_docs_from_html = _extract_graph_from_html(file_name, html_content)
+                html_graph_docs.extend(graph_docs_from_html)
+            except Exception as e:
+                print(f"  ⚠ ファイル '{file_name}' の解析中にエラーが発生しました: {e}")
+        
+        # 既存のgdocsリストに、HTMLから抽出したグラフドキュメントを追加
+        gdocs.extend(html_graph_docs)
+        print(f"✔ HTMLドキュメントからグラフ情報を抽出しました。")
+
 
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
@@ -635,6 +729,7 @@ def main() -> None:
 
     # ベクトルデータベース (Chroma) を構築
     # API仕様書とスクリプト例の両方の情報を読み込んでからDBを構築する
+    # HTMLファイルも内部で読み込まれる
     print("\n--- ChromaDB構築プロセス ---")
     api_text = _read_api_text()
     api_text = _normalize_text(api_text)
@@ -648,6 +743,7 @@ def main() -> None:
         print("⚠ スクリプト例ファイルが見つかりませんでした。")
     
     # API仕様とスクリプト例の両方の情報を渡してChromaDBを構築
+    # (HTMLはこの関数内で読み込まれる)
     _build_and_load_chroma(api_entries, script_files)
 
 
