@@ -15,7 +15,7 @@ from langchain_core.prompts import PromptTemplate
 
 # ---------- 共通 LLM ----------
 llm = ChatOpenAI(
-    model="gpt-5", # より安定したモデルを推奨
+    model="gpt-5", 
     temperature=1,
     openai_api_key=config.OPENAI_API_KEY,
 )
@@ -37,31 +37,54 @@ graph = Neo4jGraph(
     password=config.NEO4J_PASSWORD,
 )
 
-# ▼▼▼ 変更点: プロンプトを2種類に分離 ▼▼▼
-
-# 1. Cypherクエリ生成に特化したプロンプト
-#    役割: ユーザーの質問を分析し、Neo4jから情報を取得するためのCypherクエリだけを生成する。
 CYPHER_GENERATION_TEMPLATE_JP = """
-タスク: グラフデータベースをクエリするためのCypherステートメントを生成してください。
-指示:
-- スキーマで提供されているリレーションシップタイプとプロパティのみを使用してください。
-- 提供されていない他のリレーションシップタイプやプロパティは使用しないでください。
-- ユーザーの質問に含まれるキーワードを、パラメータ（例: $term）を使わずに、Cypherクエリ内に直接埋め込んでください。キーワードは大文字と小文字を区別しないように、`toLower()`関数で囲んでください。
-注意:
-- 回答に説明や謝罪を含めないでください。
-- スキーマに関係のない質問には応答しないでください。
+あなたは、CADアプリケーション「EvoShip」のAPIに関する知識グラフを熟知したエキスパートです。ユーザーの質問を解釈し、その答えを見つけるための最適なCypherクエリを生成するタスクを担います。
 
-スキーマ:
-{schema}
+## 指示
+1.  **思考プロセスに従う:** 以下の思考プロセスに従って、最適なクエリを段階的に構築してください。
+    -   **Step 1. 意図の理解:** ユーザーが「何を知りたいのか」「何をしたいのか」という根本的な意図を特定します。 (例: APIの使い方を知りたい、サンプルコードが欲しい、概念を理解したい)
+    -   **Step 2. キーワード抽出:** 質問から重要なキーワード（API名、操作対象、目的など）を抽出します。
+    -   **Step 3. ノードとリレーションの選択:** 抽出したキーワードとスキーマを基に、検索の起点となるノードタイプ (`Method`, `ScriptExample`, `Entity`等) と、たどるべきリレーション (`IS_EXAMPLE_OF`, `HAS_PARAMETER`, `CALLS`等) を選択します。
+    -   **Step 4. クエリ生成:** 上記の考察に基づき、最終的なCypherクエリを生成します。
 
-質問: {question}
-Cypherクエリ:
+2.  **検索戦略のヒント:**
+    -   **「方法」「やり方」** に関する質問には、`Method`ノードの `description` プロパティや、`ScriptExample`ノードの `summary` プロパティを検索するのが有効です。
+    -   **「サンプルコード」「実装例」** に関する質問には、`ScriptExample`ノードを検索し、`IS_EXAMPLE_OF`リレーションで関連する`Method`を探します。`ScriptExample`ノードには`code`プロパティにコード全文が格納されています。
+    -   **概念や機能**に関する質問には、HTMLから抽出した `Entity` ノードを検索するのが有効です。
+    -   キーワード検索の際は、大文字と小文字を区別しないように `toLower()` 関数を使用してください。
+
+3.  **スキーマ:**
+    {schema}
+
+4.  **Few-shot Examples (質問とクエリの例):**
+    -   **質問:** 「プレートを作成するサンプルコードはありますか？」
+    -   **Cypherクエリ:**
+        ```cypher
+        MATCH (s:ScriptExample)-[:IS_EXAMPLE_OF]->(m:Method)
+        WHERE (toLower(s.summary) CONTAINS 'プレート' AND toLower(s.summary) CONTAINS '作成')
+           OR (toLower(m.description) CONTAINS 'プレート' AND toLower(m.description) CONTAINS '作成')
+        RETURN s.name AS script_name, s.code AS script_code, s.summary AS script_summary
+        ```
+    -   **質問:** 「点群を扱うAPIには何がありますか？」
+    -   **Cypherクエリ:**
+        ```cypher
+        MATCH (m:Method)-[:HAS_PARAMETER|HAS_RETURNS]->(:Parameter|ReturnValue)-[:HAS_TYPE]->(t:DataType)
+        WHERE toLower(t.name) CONTAINS '点'
+        RETURN DISTINCT m.name AS method_name, m.description AS method_description
+        ```
+
+ 5.**出力:**
+    -   生成されたCypherクエリのみを、` ```cypher ... ``` ` のようなコードブロックなしで、**文字列としてそのまま出力してください。**
+    -   説明、前置き、括弧、謝罪は一切含めないでください。
+    -   **クエリは必ず `MATCH` や `RETURN` などのキーワードから開始してください。**
+---
+**質問:** {question}
+**Cypherクエリ:**
 """
 
 CYPHER_GENERATION_PROMPT = PromptTemplate(
     input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE_JP
 )
-
 # 2. 最終的な回答（Pythonコード）生成に特化したプロンプト
 #    役割: Cypherの実行結果(context)と元の質問を基に、完全なPythonスクリプトを生成する。
 QA_TEMPLATE = """
@@ -83,6 +106,7 @@ QA_TEMPLATE = """
 - メソッドの返り値は、後続のメソッドで利用するために変数に格納すること。
 - 複数のAPI呼び出しがある場合、それらを論理的な順序で構成すること。
 - 取得した情報から最も適切と考えられる単一のスクリプトを作成すること。
+- ナレッジグラフからの情報にサンプルコードが含まれている場合は、それを最優先で参考にし、必要に応じて質問内容に合わせて修正してください。
 
 ## 出力形式
 以下のマークダウン形式で回答してください。コードや説明以外の余計な文章は含めないでください。
@@ -96,7 +120,7 @@ QA_TEMPLATE = """
 """
 
 QA_PROMPT = PromptTemplate(
-    input_variables=["context", "question"], template=QA_TEMPLATE
+input_variables=["context", "question"], template=QA_TEMPLATE
 )
 
 # GraphCypherQAChainを、2種類のカスタムプロンプトで初期化
@@ -118,7 +142,7 @@ def ask(question: str, route: str = "vector") -> str:
         result = graph_qa.invoke({"query": question})
         return result['result']
     elif route == "vector":
-        return vector_qa.run({"query": question}) # .runは将来的に非推奨になるため、.invokeを推奨
+        return vector_qa.invoke({"query": question})
     else:
         raise ValueError("route は 'vector' または 'graph' のみ指定できます。")
 

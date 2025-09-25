@@ -6,4 +6,3 @@ chromadb
 tiktoken
 python-dotenv
 langchain-experimental
-python-dotenv
