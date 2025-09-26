@@ -1,0 +1,2818 @@
+[
+  {
+    "page_content": "ノードタイプ: Object\nID: Part\nプロパティ:\n- name: Part",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "Part",
+      "node_type": "Object"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateVariable\n説明: 変数要素の作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateVariable",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateVariable_ReturnValue\nプロパティ:\n- description: 作成された変数要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateVariable_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: ID\nプロパティ:\n- name: ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ID",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateVariable_VariableName\nプロパティ:\n- name: VariableName\n- description: 作成する変数名称(空文字不可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateVariable_VariableName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 文字列\nプロパティ:\n- name: 文字列\n- description: 通常の文字列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "文字列",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchPlane\n説明: スケッチ平面の作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchPlane",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchPlane_ReturnValue\nプロパティ:\n- description: 作成されたスケッチ平面要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchPlane_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchPlane_ElementName\nプロパティ:\n- name: ElementName\n- description: 作成するスケッチ平面名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchPlane_ElementName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchLayer\n説明: スケッチレイヤーの作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLayer",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchLayer_ReturnValue\nプロパティ:\n- description: 作成されたスケッチレイヤー要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLayer_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchLayer_SketchLayerName\nプロパティ:\n- name: SketchLayerName\n- description: 作成するスケッチレイヤー名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLayer_SketchLayerName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchLine\n説明: スケッチ直線作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLine",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchLine_ReturnValue\nプロパティ:\n- description: 作成されたスケッチ直線要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLine_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchLine_SketchPlane\nプロパティ:\n- name: SketchPlane\n- description: 直線を作成するスケッチ要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLine_SketchPlane",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 要素\nプロパティ:\n- name: 要素\n- description: (複数要素の場合は文字列の配列とする)\nEVO.SHIPの各要素を指定する\n〇IDで指定\nEVO.SHIPの要素はユニークなIDを必ずもつのでそのID文字列を\"ID@\"をプレフィックスとして指定\n例）\"ID@d8baafc30be94411a6ab9d6173c1d1dd\" (d8baafc30be94411a6ab9d6173c1d1ddというIDをもつ要素)\n〇要素名で指定\nEVO.SHIPの要素名称は重複を許すので、複数見つかった際にどれになるかは不定\n要素名称はEVO.SHIPの要素グループを指定するのこともできる\n例）G1という要素グループ配下のG2という要素グループ配下のAという名前の要素の指定\nG1/G2/A\n〇板ソリッド要素の板厚面を指定（条材ソリッドの場合はウェブ部分）\n必ず文字列配列で指定\n配列の最初の要素は\"PLS\"という固定文字列\n次の配列要素（２番目）は\"True\"か\"False\"で,\"True\"の場合はFace内部穴を削除する\n次の配列要素（３番目）は常に\"False\" (システムで利用します）\nその次から３っつの要素（４番目、５番目、６番目）で板厚面のどちら側かを\n指定するために外側方向（おおよそ）をベクトル指定する\n最後の要素でソリッド要素を指定する\n例）[\"PLS\",\"False\",\"False\",\"0.0\",\"0.0\",\"-1.0\",\"ID@d8baafc30be94411a6ab9d6173c1d1dd\"]\nd8baafc30be94411a6ab9d6173c1d1ddというＩＤをもつソリッド要素（板材)の(0,0,-1)方向を向いている側の面の指定\n〇ソリッドやシート要素のフェイスを指定\n\",\" コンマで区切られた文字列で指定\n最初のカラムでソリッドやシート要素のＩＤを指定、次のカラムは固定文字\"F\"、その次のカラムからフェイス上の点の座標値を指定（複数フェイス指定可能）\n例 \"ID@d8baafc30be94411a6ab9d6173c1d1dd,F,-10,0.5,2.3,-11.0,0.0,4.8\"\nd8baafc30be94411a6ab9d6173c1d1ddというＩＤをもつ要素でそのFace上の座標値が(-10,0.5,2.3)と(-11.0,0.0,4.8)\nである２つのフェイスを指定",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "要素",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchLine_SketchLineName\nプロパティ:\n- name: SketchLineName\n- description: 作成するスケッチ直線名称(空文字可)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchLine_SketchLineName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchArc\n説明: スケッチ円弧を中心点と始終点を指定して作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchArc_ReturnValue\nプロパティ:\n- description: 作成されたスケッチ円弧要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchArc_SketchPlane\nプロパティ:\n- name: SketchPlane\n- description: 円弧を作成するスケッチ要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc_SketchPlane",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchArc_SketchArcName\nプロパティ:\n- name: SketchArcName\n- description: 作成するスケッチ円弧名称(空文字可)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc_SketchArcName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchArc3Pts\n説明: スケッチ円弧を周上の３点を指定して作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc3Pts",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchArc3Pts_ReturnValue\nプロパティ:\n- description: 作成されたスケッチ円弧要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc3Pts_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchArc3Pts_SketchPlane\nプロパティ:\n- name: SketchPlane\n- description: 円弧を作成するスケッチ要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc3Pts_SketchPlane",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchArc3Pts_SketchArcName\nプロパティ:\n- name: SketchArcName\n- description: 作成するスケッチ円弧名称(空文字可)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchArc3Pts_SketchArcName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchCircle\n説明: スケッチ円を中心点を指定して作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchCircle",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchCircle_ReturnValue\nプロパティ:\n- description: 作成されたスケッチ円要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchCircle_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchCircle_SketchPlane\nプロパティ:\n- name: SketchPlane\n- description: 円を作成するスケッチ要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchCircle_SketchPlane",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchCircle_SketchArcName\nプロパティ:\n- name: SketchArcName\n- description: 作成するスケッチ円名称(空文字可)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchCircle_SketchArcName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchEllipse\n説明: スケッチ楕円を中心点を指定して作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchEllipse",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchEllipse_ReturnValue\nプロパティ:\n- description: 作成されたスケッチ楕円要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchEllipse_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchEllipse_SketchPlane\nプロパティ:\n- name: SketchPlane\n- description: 楕円を作成するスケッチ要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchEllipse_SketchPlane",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchEllipse_SketchArcName\nプロパティ:\n- name: SketchArcName\n- description: 作成するスケッチ楕円名称(空文字可)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchEllipse_SketchArcName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSketchNURBSCurve\n説明: スケッチＮＵＲＢＳ線を中心点を指定して作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchNURBSCurve",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSketchNURBSCurve_ReturnValue\nプロパティ:\n- description: 作成されたスケッチＮＵＲＢＳ線要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchNURBSCurve_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchNURBSCurve_SketchPlane\nプロパティ:\n- name: SketchPlane\n- description: ＮＵＲＢＳ線を作成するスケッチ要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchNURBSCurve_SketchPlane",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSketchNURBSCurve_SketchArcName\nプロパティ:\n- name: SketchArcName\n- description: 作成するスケッチＮＵＲＢＳ線名称(空文字可)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSketchNURBSCurve_SketchArcName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateElementsFromFile\n説明: ファイルをインポートして要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateElementsFromFile",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateElementsFromFile_ReturnValue\nプロパティ:\n- description: 作成された要素の要素IDの配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateElementsFromFile_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateElementsFromFile_FileName\nプロパティ:\n- name: FileName\n- description: ファイルパス(現状、Parasolid形式のみ)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateElementsFromFile_FileName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateOffsetSheet\n説明: オフセットシートを作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOffsetSheet",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateOffsetSheet_ReturnValue\nプロパティ:\n- description: 作成されたオフセットシート要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOffsetSheet_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateOffsetSheet_SheetName\nプロパティ:\n- name: SheetName\n- description: 作成するシート要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOffsetSheet_SheetName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateLinearSweep\n説明: 指定したソリッド要素に押し出し形状を付加する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweep",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateLinearSweep_ReturnValue\nプロパティ:\n- description: 作成された押し出しフィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweep_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 不明\nプロパティ:\n- name: 不明",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "不明",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateLinearSweep_TargetSolidName\nプロパティ:\n- name: TargetSolidName\n- description: 押し出しフィーチャーを作成する対象のソリッドを指定\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweep_TargetSolidName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateLinearSweep_OperationType\nプロパティ:\n- name: OperationType\n- description: ソリッドオペレーションのタイプを指定する\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweep_OperationType",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: オペレーションタイプ\nプロパティ:\n- name: オペレーションタイプ",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "オペレーションタイプ",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateLinearSweepSheet\n説明: プロファイル要素を押し出してシート要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweepSheet",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateLinearSweepSheet_ReturnValue\nプロパティ:\n- description: 作成されたシート要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweepSheet_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: SheetAlignNormal\n説明: シート要素の向き(表側、法線方向)を指定した方向に揃える",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SheetAlignNormal",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: SheetAlignNormal_ReturnValue\nプロパティ:\n- description: なし",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SheetAlignNormal_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: SheetAlignNormal_SheetElement\nプロパティ:\n- name: SheetElement\n- description: 方向を揃えるシート要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SheetAlignNormal_SheetElement",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: SheetAlignNormal_dirX\nプロパティ:\n- name: dirX\n- description: 方向ベクトルのX成分\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SheetAlignNormal_dirX",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 浮動小数点\nプロパティ:\n- name: 浮動小数点\n- description: 通常の数値",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "浮動小数点",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: SheetAlignNormal_dirY\nプロパティ:\n- name: dirY\n- description: 方向ベクトルのY成分\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SheetAlignNormal_dirY",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: SheetAlignNormal_dirZ\nプロパティ:\n- name: dirZ\n- description: 方向ベクトルのZ成分\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SheetAlignNormal_dirZ",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: ReverseSheet\n説明: シート要素の向きを反転する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ReverseSheet",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: ReverseSheet_ReturnValue\nプロパティ:\n- description: シート反転フィーチャーの要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ReverseSheet_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: ReverseSheet_SheetElement\nプロパティ:\n- name: SheetElement\n- description: 反転するシート要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ReverseSheet_SheetElement",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: BlankElement\n説明: 指定要素を表示状態を設定する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BlankElement",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: BlankElement_ReturnValue\nプロパティ:\n- description: なし",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BlankElement_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: BlankElement_Element\nプロパティ:\n- name: Element\n- description: 表示状態を指定する要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BlankElement_Element",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: BlankElement_bBlank\nプロパティ:\n- name: bBlank\n- description: Trueの時は非表示にする。Falseの時は表示する。\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BlankElement_bBlank",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: bool\nプロパティ:\n- name: bool\n- description: 通常の真偽値 True False\n以下のタイプは全てPythonの型としては文字列。文字列の書式の仕様",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "bool",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: TranslationCopy\n説明: 指定要素を移動コピーする",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: TranslationCopy_ReturnValue\nプロパティ:\n- description: コピーされた要素ID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: TranslationCopy_SrcElements\nプロパティ:\n- name: SrcElements\n- description: コピーする要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy_SrcElements",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: TranslationCopy_nCopy\nプロパティ:\n- name: nCopy\n- description: コピーする数\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy_nCopy",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 整数\nプロパティ:\n- name: 整数\n- description: 通常の数値",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "整数",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: TranslationCopy_direction\nプロパティ:\n- name: direction\n- description: コピーする方向\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy_direction",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 方向\nプロパティ:\n- name: 方向\n- description: 〇 各軸方向は\"+X\",\"-X\",\"+Y\",\"-X\",\"+Z\",\"-Z\" で指定\n〇 \",\" コンマで区切って各コンポーネントをＸ，Ｙ，Ｚ（３Ｄの場合）を数値（変数も可）で指定",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "方向",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: TranslationCopy_distance\nプロパティ:\n- name: distance\n- description: 移動距離\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy_distance",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 長さ\nプロパティ:\n- name: 長さ\n- description: mm単位の数値、変数要素名,式文字列、\n例) \"100.0\" , \"L1\", \"L1 / 2.0\"",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "長さ",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: TranslationCopy_ReferMethod\nプロパティ:\n- name: ReferMethod\n- description: 要素の関連づけ方法の指定\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "TranslationCopy_ReferMethod",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 関連設定\nプロパティ:\n- name: 関連設定\n- description: ボディ関連とする場合は\"B\"\nそれ以外（空白含む）はフィーチャー関連",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "関連設定",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: MirrorCopy\n説明: 指定要素をミラーコピーする",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "MirrorCopy",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: MirrorCopy_ReturnValue\nプロパティ:\n- description: コピーされた要素ID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "MirrorCopy_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: MirrorCopy_SrcElements\nプロパティ:\n- name: SrcElements\n- description: コピーする要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "MirrorCopy_SrcElements",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: MirrorCopy_ReferMethod\nプロパティ:\n- name: ReferMethod\n- description: 要素の関連づけ方法の指定\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "MirrorCopy_ReferMethod",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSolid\n説明: 空のソリッド要素を作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSolid",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSolid_ReturnValue\nプロパティ:\n- description: 作成されたソリッドの要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSolid_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSolid_SolidName\nプロパティ:\n- name: SolidName\n- description: 作成するソリッド要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSolid_SolidName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateThicken\n説明: 指定したソリッド要素に指定要素厚みづけした形状を作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateThicken",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateThicken_ReturnValue\nプロパティ:\n- description: 作成された厚みづけフィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateThicken_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateThicken_ThickenFeatureName\nプロパティ:\n- name: ThickenFeatureName\n- description: 作成する厚みづけフィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateThicken_ThickenFeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateOtherSolid\n説明: 指定したソリッド要素に別のソリッド要素形状を付加する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOtherSolid",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateOtherSolid_ReturnValue\nプロパティ:\n- description: 作成された別ソリッドフィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOtherSolid_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateOtherSolid_OtherSolidFeatureName\nプロパティ:\n- name: OtherSolidFeatureName\n- description: 作成する別ソリッドフィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOtherSolid_OtherSolidFeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateBracket\n説明: 船殻のブラケットソリッド要素を作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBracket",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateBracket_ReturnValue\nプロパティ:\n- description: 作成したソリッド要素のID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBracket_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreatePlate\n説明: 船殻のプレートソリッド要素を作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreatePlate",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreatePlate_ReturnValue\nプロパティ:\n- description: 作成したソリッド要素のID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreatePlate_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreatePlate_PlateName\nプロパティ:\n- name: PlateName\n- description: 作成するプレートソリッド要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreatePlate_PlateName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateProfile\n説明: 船殻の条材ソリッド要素を取付線指定で作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateProfile",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateProfile_ReturnValue\nプロパティ:\n- description: 作成した条材ソリッド要素のID(配列 配列[0]Web要素 配列[1]フランジ要素",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateProfile_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: BodyDivideByElements\n説明: ボディを指定した要素で分割する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByElements",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: BodyDivideByElements_ReturnValue\nプロパティ:\n- description: 分割で作成されたボディ要素のID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByElements_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: BodyDivideByElements_pDriveFeatureName\nプロパティ:\n- name: pDriveFeatureName\n- description: 作成する分割フィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByElements_pDriveFeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: BodySeparateBySubSolids\n説明: ボディを指定したソリッドで削除することで分割する(ボディの区分けコマンド)",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodySeparateBySubSolids",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: BodySeparateBySubSolids_ReturnValue\nプロパティ:\n- description: 分割で作成されたボディ要素のID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodySeparateBySubSolids_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: BodySeparateBySubSolids_pSeparateFeatureName\nプロパティ:\n- name: pSeparateFeatureName\n- description: 作成する分割フィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodySeparateBySubSolids_pSeparateFeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: BodyDivideByCurves\n説明: ボディを指定した線で分割する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByCurves",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: BodyDivideByCurves_ReturnValue\nプロパティ:\n- description: 分割で作成されたボディ要素のID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByCurves_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: BodyDivideByCurves_pDriveFeatureName\nプロパティ:\n- name: pDriveFeatureName\n- description: 作成する分割フィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByCurves_pDriveFeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: BodyDivideByPlanes\n説明: ボディを指定した平面で分割する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByPlanes",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: BodyDivideByPlanes_ReturnValue\nプロパティ:\n- description: 分割で作成されたボディ要素のID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByPlanes_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: BodyDivideByPlanes_pDriveFeatureName\nプロパティ:\n- name: pDriveFeatureName\n- description: 作成する分割フィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "BodyDivideByPlanes_pDriveFeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CutBody\n説明: ボディを指定した要素でカットする",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CutBody",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CutBody_ReturnValue\nプロパティ:\n- description: 作成されたカットフィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CutBody_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CutBody_FeatureName\nプロパティ:\n- name: FeatureName\n- description: 作成するカットフィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CutBody_FeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateBoundedPlate\n説明: 指定したソリッド要素に境界要素を指定した板形状を作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBoundedPlate",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateBoundedPlate_ReturnValue\nプロパティ:\n- description: 作成された境界要素指定フィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBoundedPlate_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateBoundedPlate_FeatureName\nプロパティ:\n- name: FeatureName\n- description: 作成する境界要素指定フィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBoundedPlate_FeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateBoundingBox\n説明: 指定したソリッド要素に境界ボックス形状を作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBoundingBox",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateBoundingBox_ReturnValue\nプロパティ:\n- description: 作成された境界ボックス形状フィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBoundingBox_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateBoundingBox_FeatureName\nプロパティ:\n- name: FeatureName\n- description: 作成する境界ボックスフィーチャー要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBoundingBox_FeatureName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: SetElementColor\n説明: 指定要素の色を設定する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SetElementColor",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: SetElementColor_ReturnValue\nプロパティ:\n- description: 作成された境界ボックス形状フィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SetElementColor_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: SetElementColor_Element\nプロパティ:\n- name: Element\n- description: 色を設定する要素\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SetElementColor_Element",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: SetElementColor_RValue\nプロパティ:\n- name: RValue\n- description: 赤色の値(0-255)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SetElementColor_RValue",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSweep\n説明: 指定したソリッド要素にスイープ形状を付加する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSweep",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSweep_ReturnValue\nプロパティ:\n- description: 作成されたスイープフィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSweep_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSweep_TargetSolidName\nプロパティ:\n- name: TargetSolidName\n- description: スイープフィーチャーを作成する対象のソリッドを指定\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSweep_TargetSolidName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateSweep_OperationType\nプロパティ:\n- name: OperationType\n- description: ソリッドオペレーションのタイプを指定する\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSweep_OperationType",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSweepSheet\n説明: プロファイル要素をスイープしてシート要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSweepSheet",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSweepSheet_ReturnValue\nプロパティ:\n- description: 作成されたシート要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSweepSheet_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateRotationalSweep\n説明: 指定したソリッド要素に回転形状を付加する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotationalSweep",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateRotationalSweep_ReturnValue\nプロパティ:\n- description: 作成された回転フィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotationalSweep_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateRotationalSweep_TargetSolidName\nプロパティ:\n- name: TargetSolidName\n- description: 回転フィーチャーを作成する対象のソリッドを指定\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotationalSweep_TargetSolidName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateRotationalSweep_OperationType\nプロパティ:\n- name: OperationType\n- description: ソリッドオペレーションのタイプを指定する\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotationalSweep_OperationType",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateRotationalSweepSheet\n説明: プロファイル要素を回転してシート要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotationalSweepSheet",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateRotationalSweepSheet_ReturnValue\nプロパティ:\n- description: 作成されたシート要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotationalSweepSheet_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateLine\n説明: 3Dの直線線要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLine",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateLine_ReturnValue\nプロパティ:\n- description: 線要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLine_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateLine_StartPoint\nプロパティ:\n- name: StartPoint\n- description: 始点\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLine_StartPoint",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 点\nプロパティ:\n- name: 点\n- description: \",\" コンマで区切って各コンポーネントをＸ，Ｙ，Ｚ（３Ｄの場合）を長さ（変数も可）で指定\n例) \"100.0,50,0,0.0\" , \"FRM1,0.0,1000.0\"",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "点",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateArc\n説明: 3Dの円弧線要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateArc_ReturnValue\nプロパティ:\n- description: 線要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateArc_CenterPoint\nプロパティ:\n- name: CenterPoint\n- description: 中心点\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc_CenterPoint",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateArc_Normal\nプロパティ:\n- name: Normal\n- description: 軸方向\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc_Normal",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateArc_MajorDir\nプロパティ:\n- name: MajorDir\n- description: 主軸方向(パラメータ０の位置方向\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc_MajorDir",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateArc_Radius\nプロパティ:\n- name: Radius\n- description: 半径\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc_Radius",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateArc_bClose\nプロパティ:\n- name: bClose\n- description: Trueの時は円を作成する\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateArc_bClose",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateEllipse\n説明: 3Dの楕円線要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateEllipse_ReturnValue\nプロパティ:\n- description: 線要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateEllipse_CenterPoint\nプロパティ:\n- name: CenterPoint\n- description: 中心点\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_CenterPoint",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateEllipse_Normal\nプロパティ:\n- name: Normal\n- description: 軸方向\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_Normal",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateEllipse_MajorDir\nプロパティ:\n- name: MajorDir\n- description: 主軸方向(パラメータ０の位置方向\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_MajorDir",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateEllipse_MajorRadius\nプロパティ:\n- name: MajorRadius\n- description: 主軸半径\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_MajorRadius",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateEllipse_MinorRadius\nプロパティ:\n- name: MinorRadius\n- description: 副軸半径\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_MinorRadius",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateEllipse_bClose\nプロパティ:\n- name: bClose\n- description: Trueの時は閉じたを作成する\n- order: 5",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateEllipse_bClose",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateNURBSCurve\n説明: 3DのＮＵＲＢＳ線要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateNURBSCurve_ReturnValue\nプロパティ:\n- description: 線要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_nDegree\nプロパティ:\n- name: nDegree\n- description: ＮＵＲＢＳ線の次数\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_nDegree",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_bClose\nプロパティ:\n- name: bClose\n- description: 閉じたＮＵＲＢＳ線の場合True\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_bClose",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_bPeriodic\nプロパティ:\n- name: bPeriodic\n- description: 周期ＮＵＲＢＳ線の場合True\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_bPeriodic",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_CtrlPoints\nプロパティ:\n- name: CtrlPoints\n- description: 制御点\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_CtrlPoints",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_Weights\nプロパティ:\n- name: Weights\n- description: 重み\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_Weights",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_Knots\nプロパティ:\n- name: Knots\n- description: ノットベクトル\n- order: 5",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_Knots",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateNURBSCurve_Range\nプロパティ:\n- name: Range\n- description: トリム範囲\n- order: 6",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateNURBSCurve_Range",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: DataType\nID: 範囲\nプロパティ:\n- name: 範囲\n- description: 上限、下限の数値をコンマで区切って指定\n例) \"0.0,1.0\" , \"L1,L2\", \"-1.0,1.0\"",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "範囲",
+      "node_type": "DataType"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateLoft\n説明: 指定したソリッド要素にロフト形状を付加する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLoft",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateLoft_ReturnValue\nプロパティ:\n- description: 作成されたロフトフィーチャーのID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLoft_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateLoft_TargetSolidName\nプロパティ:\n- name: TargetSolidName\n- description: ロフトフィーチャーを作成する対象のソリッドを指定\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLoft_TargetSolidName",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateLoft_OperationType\nプロパティ:\n- name: OperationType\n- description: ソリッドオペレーションのタイプを指定する\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLoft_OperationType",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateLoftSheet\n説明: ロフトシート要素を作成",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLoftSheet",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateLoftSheet_ReturnValue\nプロパティ:\n- description: 作成されたシート要素の要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLoftSheet_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateSlot\n説明: 船殻のスロット要素、カラープレートを作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSlot",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateSlot_ReturnValue\nプロパティ:\n- description: 作成されたスロットフィーチャー、カラープレート１，カラープレート２の要素ID配列",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSlot_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateFacePlate\n説明: 船殻のフェイスプレート要素トを作成する",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateFacePlate",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateFacePlate_ReturnValue\nプロパティ:\n- description: 作成されたフェイスプレート要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateFacePlate_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateOffsetDatumPlane\n説明: データム平面の作成(移動)",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOffsetDatumPlane",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateOffsetDatumPlane_ReturnValue\nプロパティ:\n- description: 作成されたフェイスプレート要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOffsetDatumPlane_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateOffsetDatumPlane_Name\nプロパティ:\n- name: Name\n- description: 作成するデータム平面要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateOffsetDatumPlane_Name",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: CreateRotatedDatumPlane\n説明: データム平面の作成(回転)",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotatedDatumPlane",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: ReturnValue\nID: CreateRotatedDatumPlane_ReturnValue\nプロパティ:\n- description: 作成されたフェイスプレート要素ID",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotatedDatumPlane_ReturnValue",
+      "node_type": "ReturnValue"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: Parameter\nID: CreateRotatedDatumPlane_Name\nプロパティ:\n- name: Name\n- description: 作成するデータム平面要素名称(空文字可)\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateRotatedDatumPlane_Name",
+      "node_type": "Parameter"
+    }
+  },
+  {
+    "page_content": "スクリプト例\nファイル名: board.py\n全文コード:\n```python\nimport win32com.client\nevoship = win32com.client.DispatchEx(\"EvoShip.Application\")\nevoship.ShowMainWindow(True)\ndoc = evoship.Create3DDocument()\npart = doc.GetPart()\nskt_pl1 = part.CreateSketchPlane(\"スケッチ2\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl1,True)\nskt_ln1 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"27.002899867463938,-5.1232415479819116\",\"220.36369998854195,-5.1232415479819116\",False)\nskt_ln2 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"220.36369998854195,-5.1232415479819116\",\"220.36369998854195,208.37764962333941\",False)\nskt_ln3 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"220.36369998854195,208.37764962333941\",\"27.002899867463931,208.37764962333941\",False)\nskt_ln4 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"27.002899867463938,208.37764962333941\",\"27.002899867463938,-5.1232415479819107\",False)\nskt_arc1 = part.CreateSketchCircle(skt_pl1,\"円1\",\"デフォルト\",\"123.683299928,101.627204037\",\"50\",True,True,False)\nsolid1 = part.CreateSolid(\"ソリッド1\",\"\",\"SS400\")\npart.SetElementColor(solid1,\"225\",\"225\",\"225\",\"0\")\nextrudePram1 = part.CreateLinearSweepParam()\nextrudePram1.Name=\"押し出し1\"\nextrudePram1.AddProfile(skt_pl1)\nextrudePram1.DirectionType=\"N\"\nextrudePram1.DirectionParameter1=\"10\"\nextrudePram1.RefByGeometricMethod=False\nextrude1 = part.CreateLinearSweep(solid1,\"+\",extrudePram1,False)\nextrudePram2 = part.CreateLinearSweepParam()\nextrudePram2.Name=\"押し出しカット1\"\nextrudePram2.AddProfile(skt_arc1)\nextrudePram2.DirectionType=\"T\"\nextrudePram2.RefByGeometricMethod=False\nextrude2 = part.CreateLinearSweep(solid1,\"-\",extrudePram2,False)\n\n\n```",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py",
+      "node_type": "ScriptExample"
+    }
+  },
+  {
+    "page_content": "コードチャンク\n目的: EvoShipのCOM APIを用いてアプリを起動し、3Dドキュメント上で矩形スケッチを10だけ押し出してSS400材のソリッドを作成し、円スケッチを貫通押し出しで切り抜いて穴を開け、色を設定する処理です。\nコード:\n```python\nimport win32com.client\nevoship = win32com.client.DispatchEx(\"EvoShip.Application\")\nevoship.ShowMainWindow(True)\ndoc = evoship.Create3DDocument()\npart = doc.GetPart()\nskt_pl1 = part.CreateSketchPlane(\"スケッチ2\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl1,True)\nskt_ln1 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"27.002899867463938,-5.1232415479819116\",\"220.36369998854195,-5.1232415479819116\",False)\nskt_ln2 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"220.36369998854195,-5.1232415479819116\",\"220.36369998854195,208.37764962333941\",False)\nskt_ln3 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"220.36369998854195,208.37764962333941\",\"27.002899867463931,208.37764962333941\",False)\nskt_ln4 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"27.002899867463938,208.37764962333941\",\"27.002899867463938,-5.1232415479819107\",False)\nskt_arc1 = part.CreateSketchCircle(skt_pl1,\"円1\",\"デフォルト\",\"123.683299928,101.627204037\",\"50\",True,True,False)\nsolid1 = part.CreateSolid(\"ソリッド1\",\"\",\"SS400\")\npart.SetElementColor(solid1,\"225\",\"225\",\"225\",\"0\")\nextrudePram1 = part.CreateLinearSweepParam()\nextrudePram1.Name=\"押し出し1\"\nextrudePram1.AddProfile(skt_pl1)\nextrudePram1.DirectionType=\"N\"\nextrudePram1.DirectionParameter1=\"10\"\nextrudePram1.RefByGeometricMethod=False\nextrude1 = part.CreateLinearSweep(solid1,\"+\",extrudePram1,False)\nextrudePram2 = part.CreateLinearSweepParam()\nextrudePram2.Name=\"押し出しカット1\"\nextrudePram2.AddProfile(skt_arc1)\nextrudePram2.DirectionType=\"T\"\nextrudePram2.RefByGeometricMethod=False\nextrude2 = part.CreateLinearSweep(solid1,\"-\",extrudePram2,False)\n```",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0",
+      "node_type": "CodeChunk"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_0\nプロパティ:\n- code: win32com.client.DispatchEx(\"EvoShip.Application\")\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_0",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_1\nプロパティ:\n- code: evoship.ShowMainWindow(True)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_1",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_2\nプロパティ:\n- code: evoship.Create3DDocument()\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_2",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_3\nプロパティ:\n- code: doc.GetPart()\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_3",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_4\nプロパティ:\n- code: part.CreateSketchPlane(\"スケッチ2\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_4",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_5\nプロパティ:\n- code: part.BlankElement(skt_pl1,True)\n- order: 5",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_5",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_6\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"27.002899867463938,-5.1232415479819116\",\"220.36369998854195,-5.1232415479819116\",False)\n- order: 6",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_6",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_7\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"220.36369998854195,-5.1232415479819116\",\"220.36369998854195,208.37764962333941\",False)\n- order: 7",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_7",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_8\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"220.36369998854195,208.37764962333941\",\"27.002899867463931,208.37764962333941\",False)\n- order: 8",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_8",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_9\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"27.002899867463938,208.37764962333941\",\"27.002899867463938,-5.1232415479819107\",False)\n- order: 9",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_9",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_10\nプロパティ:\n- code: part.CreateSketchCircle(skt_pl1,\"円1\",\"デフォルト\",\"123.683299928,101.627204037\",\"50\",True,True,False)\n- order: 10",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_10",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_11\nプロパティ:\n- code: part.CreateSolid(\"ソリッド1\",\"\",\"SS400\")\n- order: 11",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_11",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_12\nプロパティ:\n- code: part.SetElementColor(solid1,\"225\",\"225\",\"225\",\"0\")\n- order: 12",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_12",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_13\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 13",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_13",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_14\nプロパティ:\n- code: extrudePram1.AddProfile(skt_pl1)\n- order: 14",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_14",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_15\nプロパティ:\n- code: part.CreateLinearSweep(solid1,\"+\",extrudePram1,False)\n- order: 15",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_15",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_16\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 16",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_16",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_17\nプロパティ:\n- code: extrudePram2.AddProfile(skt_arc1)\n- order: 17",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_17",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: board.py_chunk_0_call_18\nプロパティ:\n- code: part.CreateLinearSweep(solid1,\"-\",extrudePram2,False)\n- order: 18",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "board.py_chunk_0_call_18",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "スクリプト例\nファイル名: sample0926.py\n全文コード:\n```python\nimport win32com.client\nevoship = win32com.client.DispatchEx(\"EvoShip.Application\")\nevoship.ShowMainWindow(True)\ndoc = evoship.Create3DDocument()\npart = doc.GetPart()\nskt_pl1 = part.CreateSketchPlane(\"スケッチ1\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl1,True)\nskt_ln1 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"384.92570447799812,276.54630352599389\",\"-135.29311966786784,276.54630352599389\",False)\nskt_ln2 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"-135.29311966786781,276.54630352599389\",\"-135.29311966786781,-486.20309829181588\",False)\nskt_ln3 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"-135.29311966786781,-486.20309829181593\",\"384.92570447799812,-486.20309829181593\",False)\nskt_ln4 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"384.92570447799812,-486.20309829181593\",\"384.92570447799812,276.54630352599384\",False)\nsolid1 = part.CreateSolid(\"PL1\",\"\",\"SS400\")\npart.SetElementColor(solid1,\"225\",\"225\",\"225\",\"0\")\nextrudePram1 = part.CreateLinearSweepParam()\nextrudePram1.Name=\"押し出し1\"\nextrudePram1.AddProfile(skt_pl1)\nextrudePram1.DirectionType=\"N\"\nextrudePram1.DirectionParameter1=\"10\"\nextrudePram1.RefByGeometricMethod=True\nextrude1 = part.CreateLinearSweep(solid1,\"+\",extrudePram1,False)\nskt_pl2 = part.CreateSketchPlane(\"スケッチ2\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl2,True)\nskt_ln5 = part.CreateSketchLine(skt_pl2,\"\",\"デフォルト\",\"355.50976864133878,194.5295209304914\",\"-99.567300286613147,194.5295209304914\",False)\nProfilePram1 = part.CreateProfileParam()\nProfilePram1.DefinitionType=0\nProfilePram1.AddAttachLines(skt_ln5)\nProfilePram1.AddAttachSurfaces(solid1+\",F,124.81629240506514,-104.82839738291105,10\")\nProfilePram1.BaseOnAttachLines=False\nProfilePram1.NotProjectAttachLines=False\nProfilePram1.ProfileName=\"Prf1\"\nProfilePram1.MaterialName=\"SS400\"\nProfilePram1.ProfileType=1003\nProfilePram1.ProfileParams=[\"300\",\"90\",\"13.000000000000002\",\"17\",\"19\",\"9.5\"]\nProfilePram1.Mold=\"+\"\nProfilePram1.ReverseDir=False\nProfilePram1.ReverseAngle=False\nProfilePram1.CalcSnipOnlyAttachLines=False\nProfilePram1.AttachDirMethod=0\nProfilePram1.CCWDefAngle=False\nProfilePram1.End1Type=1103\nProfilePram1.End1TypeParams=[\"0\"]\nProfilePram1.End2Type=1103\nProfilePram1.End2TypeParams=[\"0\"]\nProfilePram1.End1ScallopType=-1\nProfilePram1.End2ScallopType=-1\nprofile1 = part.CreateProfile(ProfilePram1,False)\npart.SetElementColor(profile1[0],\"225\",\"225\",\"225\",\"0\")\nbracketPram1 = part.CreateBracketParam()\nbracketPram1.DefinitionType=0\nbracketPram1.BracketName=\"Bkt1\"\nbracketPram1.MaterialName=\"SS400\"\nbracketPram1.BasePlane=\"PL,X\"\nbracketPram1.BasePlaneOffset=\"50\"\nbracketPram1.UseSideSheetForPlane=False\nbracketPram1.Mold=\"+\"\nbracketPram1.Thickness=\"10\"\nbracketPram1.BracketType=1501\nbracketPram1.Scallop1Type=1801\nbracketPram1.Scallop1Params=[\"0\"]\nbracketPram1.Scallop2Type=0\nbracketPram1.Surfaces1=[profile1[0]+\",F,127.9712341773628,194.5295209304914,160\"]\nbracketPram1.RevSf1=False\nbracketPram1.Surfaces2=[\"PLS\",\"True\",\"False\",\"0\",\"-0\",\"1\",solid1]\nbracketPram1.RevSf2=False\nbracketPram1.RevSf3=False\nbracketPram1.Sf1DimensionType=1531\nbracketPram1.Sf1DimensonParams=[\"100\",\"15\"]\nbracketPram1.Sf2DimensionType=1531\nbracketPram1.Sf2DimensonParams=[\"100\",\"15\"]\nbracket1 = part.CreateBracket(bracketPram1,False)\npart.SetElementColor(bracket1,\"225\",\"225\",\"225\",\"0\")\nstlOpt = doc.CreateSTLOption()\nstlOpt.ChordalTolerance=0.1\nstlOpt.NormalTolerance=3.0\nstlOpt.SigDigits = 12\nstlOpt.Elements = [bracket1]\ndoc.ExporAsSTL(\"D:/WorkFiles/Bkt1.stl\",stlOpt)\nviews = doc.GetViews()\nviews[0].SetDirection(\"1,0,0\",\"0,0,1\",True)\nviews[0].ExportToBitmap(\"D:/WorkFiles/Sample_F.png\",3000)\n\n\n```",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py",
+      "node_type": "ScriptExample"
+    }
+  },
+  {
+    "page_content": "コードチャンク\n目的: EvoShipのCOM APIを使って3Dドキュメントを開き、スケッチを押し出して基準板を作成し所定パラメータのブラケットを生成したうえでそのブラケットをSTLに書き出し、併せてビュー画像をPNGで保存すること。\nコード:\n```python\nimport win32com.client\nevoship = win32com.client.DispatchEx(\"EvoShip.Application\")\nevoship.ShowMainWindow(True)\ndoc = evoship.Create3DDocument()\npart = doc.GetPart()\nskt_pl1 = part.CreateSketchPlane(\"スケッチ1\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl1,True)\nskt_ln1 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"384.92570447799812,276.54630352599389\",\"-135.29311966786784,276.54630352599389\",False)\nskt_ln2 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"-135.29311966786781,276.54630352599389\",\"-135.29311966786781,-486.20309829181588\",False)\nskt_ln3 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"-135.29311966786781,-486.20309829181593\",\"384.92570447799812,-486.20309829181593\",False)\nskt_ln4 = part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"384.92570447799812,-486.20309829181593\",\"384.92570447799812,276.54630352599384\",False)\nsolid1 = part.CreateSolid(\"PL1\",\"\",\"SS400\")\npart.SetElementColor(solid1,\"225\",\"225\",\"225\",\"0\")\nextrudePram1 = part.CreateLinearSweepParam()\nextrudePram1.Name=\"押し出し1\"\nextrudePram1.AddProfile(skt_pl1)\nextrudePram1.DirectionType=\"N\"\nextrudePram1.DirectionParameter1=\"10\"\nextrudePram1.RefByGeometricMethod=True\nextrude1 = part.CreateLinearSweep(solid1,\"+\",extrudePram1,False)\nskt_pl2 = part.CreateSketchPlane(\"スケッチ2\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl2,True)\nskt_ln5 = part.CreateSketchLine(skt_pl2,\"\",\"デフォルト\",\"355.50976864133878,194.5295209304914\",\"-99.567300286613147,194.5295209304914\",False)\nProfilePram1 = part.CreateProfileParam()\nProfilePram1.DefinitionType=0\nProfilePram1.AddAttachLines(skt_ln5)\nProfilePram1.AddAttachSurfaces(solid1+\",F,124.81629240506514,-104.82839738291105,10\")\nProfilePram1.BaseOnAttachLines=False\nProfilePram1.NotProjectAttachLines=False\nProfilePram1.ProfileName=\"Prf1\"\nProfilePram1.MaterialName=\"SS400\"\nProfilePram1.ProfileType=1003\nProfilePram1.ProfileParams=[\"300\",\"90\",\"13.000000000000002\",\"17\",\"19\",\"9.5\"]\nProfilePram1.Mold=\"+\"\nProfilePram1.ReverseDir=False\nProfilePram1.ReverseAngle=False\nProfilePram1.CalcSnipOnlyAttachLines=False\nProfilePram1.AttachDirMethod=0\nProfilePram1.CCWDefAngle=False\nProfilePram1.End1Type=1103\nProfilePram1.End1TypeParams=[\"0\"]\nProfilePram1.End2Type=1103\nProfilePram1.End2TypeParams=[\"0\"]\nProfilePram1.End1ScallopType=-1\nProfilePram1.End2ScallopType=-1\nprofile1 = part.CreateProfile(ProfilePram1,False)\npart.SetElementColor(profile1[0],\"225\",\"225\",\"225\",\"0\")\nbracketPram1 = part.CreateBracketParam()\nbracketPram1.DefinitionType=0\nbracketPram1.BracketName=\"Bkt1\"\nbracketPram1.MaterialName=\"SS400\"\nbracketPram1.BasePlane=\"PL,X\"\nbracketPram1.BasePlaneOffset=\"50\"\nbracketPram1.UseSideSheetForPlane=False\nbracketPram1.Mold=\"+\"\nbracketPram1.Thickness=\"10\"\nbracketPram1.BracketType=1501\nbracketPram1.Scallop1Type=1801\nbracketPram1.Scallop1Params=[\"0\"]\nbracketPram1.Scallop2Type=0\nbracketPram1.Surfaces1=[profile1[0]+\",F,127.9712341773628,194.5295209304914,160\"]\nbracketPram1.RevSf1=False\nbracketPram1.Surfaces2=[\"PLS\",\"True\",\"False\",\"0\",\"-0\",\"1\",solid1]\nbracketPram1.RevSf2=False\nbracketPram1.RevSf3=False\nbracketPram1.Sf1DimensionType=1531\nbracketPram1.Sf1DimensonParams=[\"100\",\"15\"]\nbracketPram1.Sf2DimensionType=1531\nbracketPram1.Sf2DimensonParams=[\"100\",\"15\"]\nbracket1 = part.CreateBracket(bracketPram1,False)\npart.SetElementColor(bracket1,\"225\",\"225\",\"225\",\"0\")\nstlOpt = doc.CreateSTLOption()\nstlOpt.ChordalTolerance=0.1\nstlOpt.NormalTolerance=3.0\nstlOpt.SigDigits = 12\nstlOpt.Elements = [bracket1]\ndoc.ExporAsSTL(\"D:/WorkFiles/Bkt1.stl\",stlOpt)\nviews = doc.GetViews()\nviews[0].SetDirection(\"1,0,0\",\"0,0,1\",True)\nviews[0].ExportToBitmap(\"D:/WorkFiles/Sample_F.png\",3000)\n```",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0",
+      "node_type": "CodeChunk"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_0\nプロパティ:\n- code: win32com.client.DispatchEx(\"EvoShip.Application\")\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_0",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_1\nプロパティ:\n- code: evoship.ShowMainWindow(True)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_1",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_2\nプロパティ:\n- code: evoship.Create3DDocument()\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_2",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_3\nプロパティ:\n- code: doc.GetPart()\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_3",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_4\nプロパティ:\n- code: part.CreateSketchPlane(\"スケッチ1\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_4",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_5\nプロパティ:\n- code: part.BlankElement(skt_pl1,True)\n- order: 5",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_5",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_6\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"384.92570447799812,276.54630352599389\",\"-135.29311966786784,276.54630352599389\",False)\n- order: 6",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_6",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_7\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"-135.29311966786781,276.54630352599389\",\"-135.29311966786781,-486.20309829181588\",False)\n- order: 7",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_7",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_8\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"-135.29311966786781,-486.20309829181593\",\"384.92570447799812,-486.20309829181593\",False)\n- order: 8",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_8",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_9\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"デフォルト\",\"384.92570447799812,-486.20309829181593\",\"384.92570447799812,276.54630352599384\",False)\n- order: 9",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_9",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_10\nプロパティ:\n- code: part.CreateSolid(\"PL1\",\"\",\"SS400\")\n- order: 10",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_10",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_11\nプロパティ:\n- code: part.SetElementColor(solid1,\"225\",\"225\",\"225\",\"0\")\n- order: 11",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_11",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_12\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 12",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_12",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_13\nプロパティ:\n- code: extrudePram1.AddProfile(skt_pl1)\n- order: 13",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_13",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_14\nプロパティ:\n- code: part.CreateLinearSweep(solid1,\"+\",extrudePram1,False)\n- order: 14",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_14",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_15\nプロパティ:\n- code: part.CreateSketchPlane(\"スケッチ2\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\n- order: 15",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_15",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_16\nプロパティ:\n- code: part.BlankElement(skt_pl2,True)\n- order: 16",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_16",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_17\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"デフォルト\",\"355.50976864133878,194.5295209304914\",\"-99.567300286613147,194.5295209304914\",False)\n- order: 17",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_17",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_18\nプロパティ:\n- code: part.CreateProfileParam()\n- order: 18",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_18",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_19\nプロパティ:\n- code: ProfilePram1.AddAttachLines(skt_ln5)\n- order: 19",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_19",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_20\nプロパティ:\n- code: ProfilePram1.AddAttachSurfaces(solid1+\",F,124.81629240506514,-104.82839738291105,10\")\n- order: 20",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_20",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_21\nプロパティ:\n- code: part.CreateProfile(ProfilePram1,False)\n- order: 21",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_21",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_22\nプロパティ:\n- code: part.SetElementColor(profile1[0],\"225\",\"225\",\"225\",\"0\")\n- order: 22",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_22",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_23\nプロパティ:\n- code: part.CreateBracketParam()\n- order: 23",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_23",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_24\nプロパティ:\n- code: part.CreateBracket(bracketPram1,False)\n- order: 24",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_24",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_25\nプロパティ:\n- code: part.SetElementColor(bracket1,\"225\",\"225\",\"225\",\"0\")\n- order: 25",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_25",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_26\nプロパティ:\n- code: doc.CreateSTLOption()\n- order: 26",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_26",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_27\nプロパティ:\n- code: doc.ExporAsSTL(\"D:/WorkFiles/Bkt1.stl\",stlOpt)\n- order: 27",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_27",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_28\nプロパティ:\n- code: doc.GetViews()\n- order: 28",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_28",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_29\nプロパティ:\n- code: views[0].SetDirection(\"1,0,0\",\"0,0,1\",True)\n- order: 29",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_29",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: sample0926.py_chunk_0_call_30\nプロパティ:\n- code: views[0].ExportToBitmap(\"D:/WorkFiles/Sample_F.png\",3000)\n- order: 30",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "sample0926.py_chunk_0_call_30",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "スクリプト例\nファイル名: buraketto.py\n全文コード:\n```python\nimport win32com.client\nevoship = win32com.client.DispatchEx(\"EvoShip.Application\")\nevoship.ShowMainWindow(True)\ndoc = evoship.Create3DDocument()\npart = doc.GetPart()\nskt_pl1 = part.CreateSketchPlane(\"HK.Az.Wall\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",True,False)\npart.BlankElement(skt_pl1,True)\nskt_ln1 = part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"0,-18500\",\"0,18500\",False)\nskt_ln2 = part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"-50000,15500\",\"250000,15500\",False)\nskt_ln3 = part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"-50000,-15500\",\"250000,-15500\",False)\nskt_layer1 = part.CreateSketchLayer(\"Casing.Fore\",skt_pl1)\nskt_ln4 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Fore\",\"11370.000000000002,-10394.984078409721\",\"11370.000000000002,9605.0159215902786\",False)\nskt_layer2 = part.CreateSketchLayer(\"Casing.Aft\",skt_pl1)\nskt_ln5 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Aft\",\"4019.9999999999995,-10394.984078409721\",\"4019.9999999999995,9605.0159215902786\",False)\nskt_layer3 = part.CreateSketchLayer(\"Casing.Side.P\",skt_pl1)\nskt_ln6 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Side.P\",\"-1500,4800\",\"18500,4800\",False)\nskt_layer4 = part.CreateSketchLayer(\"Casing.Side.S\",skt_pl1)\nskt_ln7 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Side.S\",\"-1500,-4800\",\"18500,-4800\",False)\nskt_layer5 = part.CreateSketchLayer(\"Dim.CenterLine\",skt_pl1)\nskt_ln8 = part.CreateSketchLine(skt_pl1,\"\",\"Dim.CenterLine\",\"-50000,0\",\"250000,0\",False)\nextrudePram1 = part.CreateLinearSweepParam()\nextrudePram1.AddProfile(skt_pl1+\",Casing.Side.P\")\nextrudePram1.DirectionType=\"2\"\nextrudePram1.DirectionParameter1=\"50000\"\nextrudePram1.DirectionParameter2=\"10000\"\nextrudePram1.SweepDirection=\"+Z\"\nextrudePram1.Name=\"HK.Casing.Wall.SideP\"\nextrudePram1.MaterialName=\"SS400\"\nextrudePram1.IntervalSweep=False\nextrude_sheet1 = part.CreateLinearSweepSheet(extrudePram1,False)\npart.SheetAlignNormal(extrude_sheet1,0,-1,0)\npart.BlankElement(extrude_sheet1,True)\npart.SetElementColor(extrude_sheet1,\"225\",\"225\",\"225\",\"1\")\nvar_elm1 = part.CreateVariable(\"FR13\",\"8970\",\"mm\",\"\")\nskt_pl2 = part.CreateSketchPlane(\"HK.Ax.Deck\",\"\",\"PL,X\",\"0\",False,False,False,\"\",\"\",\"\",True,False)\npart.BlankElement(skt_pl2,True)\nskt_ln9 = part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"15500,31800\",\"15500,-2999.9999999999964\",False)\nskt_ln10 = part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"-15499.999999999996,31800\",\"-15500,-2999.9999999999964\",False)\nskt_ln11 = part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"0,-3000\",\"0,31799.999999999996\",False)\nskt_layer6 = part.CreateSketchLayer(\"General.Deck.UpperDeck\",skt_pl2)\nskt_ln12 = part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"2000,15300\",\"18500,14933.333333333334\",False)\nskt_ln13 = part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"2000,15300\",\"-2000,15300\",False)\nskt_ln14 = part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"-2000,15300\",\"-18500,14933.333333333336\",False)\nskt_layer7 = part.CreateSketchLayer(\"Casing.Deck.A\",skt_pl2)\nskt_ln15 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.A\",\"18500,18300\",\"-18500,18300\",False)\nskt_layer8 = part.CreateSketchLayer(\"Casing.Deck.B\",skt_pl2)\nskt_ln16 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.B\",\"18500,21300\",\"-18500,21300\",False)\nskt_layer9 = part.CreateSketchLayer(\"Casing.Deck.C\",skt_pl2)\nskt_ln17 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.C\",\"18500,24300\",\"-18500,24300\",False)\nskt_layer10 = part.CreateSketchLayer(\"Casing.Deck.D\",skt_pl2)\nskt_ln18 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.D\",\"18500,27300\",\"-18500,27300\",False)\nextrudePram2 = part.CreateLinearSweepParam()\nextrudePram2.AddProfile(skt_pl2+\",Casing.Deck.C\")\nextrudePram2.DirectionType=\"2\"\nextrudePram2.DirectionParameter1=\"50000\"\nextrudePram2.DirectionParameter2=\"10000\"\nextrudePram2.SweepDirection=\"+X\"\nextrudePram2.Name=\"HK.Casing.Deck.C\"\nextrudePram2.MaterialName=\"SS400\"\nextrudePram2.IntervalSweep=False\nextrude_sheet2 = part.CreateLinearSweepSheet(extrudePram2,False)\npart.SheetAlignNormal(extrude_sheet2,-0,0,1)\npart.BlankElement(extrude_sheet2,True)\npart.SetElementColor(extrude_sheet2,\"225\",\"225\",\"225\",\"1\")\nextrudePram3 = part.CreateLinearSweepParam()\nextrudePram3.AddProfile(skt_pl1+\",Casing.Aft\")\nextrudePram3.DirectionType=\"2\"\nextrudePram3.DirectionParameter1=\"50000\"\nextrudePram3.DirectionParameter2=\"10000\"\nextrudePram3.SweepDirection=\"+Z\"\nextrudePram3.Name=\"HK.Casing.Wall.Aft\"\nextrudePram3.MaterialName=\"SS400\"\nextrudePram3.IntervalSweep=False\nextrude_sheet3 = part.CreateLinearSweepSheet(extrudePram3,False)\npart.SheetAlignNormal(extrude_sheet3,1,0,0)\npart.BlankElement(extrude_sheet3,True)\npart.SetElementColor(extrude_sheet3,\"225\",\"225\",\"225\",\"1\")\nvar_elm2 = part.CreateVariable(\"Casing.DL02\",\"1600\",\"mm\",\"\")\nextrudePram4 = part.CreateLinearSweepParam()\nextrudePram4.AddProfile(skt_pl1+\",Casing.Fore\")\nextrudePram4.DirectionType=\"2\"\nextrudePram4.DirectionParameter1=\"50000\"\nextrudePram4.DirectionParameter2=\"10000\"\nextrudePram4.SweepDirection=\"+Z\"\nextrudePram4.Name=\"HK.Casing.Wall.Fore\"\nextrudePram4.MaterialName=\"SS400\"\nextrudePram4.IntervalSweep=False\nextrude_sheet4 = part.CreateLinearSweepSheet(extrudePram4,False)\npart.SheetAlignNormal(extrude_sheet4,1,0,0)\npart.BlankElement(extrude_sheet4,True)\npart.SetElementColor(extrude_sheet4,\"225\",\"225\",\"225\",\"1\")\nextrudePram5 = part.CreateLinearSweepParam()\nextrudePram5.AddProfile(skt_pl2+\",Casing.Deck.D\")\nextrudePram5.DirectionType=\"2\"\nextrudePram5.DirectionParameter1=\"50000\"\nextrudePram5.DirectionParameter2=\"10000\"\nextrudePram5.SweepDirection=\"+X\"\nextrudePram5.Name=\"HK.Casing.Deck.D\"\nextrudePram5.MaterialName=\"SS400\"\nextrudePram5.IntervalSweep=False\nextrude_sheet5 = part.CreateLinearSweepSheet(extrudePram5,False)\npart.SheetAlignNormal(extrude_sheet5,-0,0,1)\npart.BlankElement(extrude_sheet5,True)\npart.SetElementColor(extrude_sheet5,\"225\",\"225\",\"225\",\"1\")\nProfilePram1 = part.CreateProfileParam()\nProfilePram1.DefinitionType=1\nProfilePram1.BasePlane=\"PL,O,\"+var_elm2+\",\"+\"Y\"\nProfilePram1.AddAttachSurfaces(extrude_sheet5)\nProfilePram1.ProfileName=\"HK.Casing.Deck.D.DL02P\"\nProfilePram1.MaterialName=\"SS400\"\nProfilePram1.FlangeName=\"HK.Casing.Deck.D.DL02P\"\nProfilePram1.FlangeMaterialName=\"SS400\"\nProfilePram1.ProfileType=1201\nProfilePram1.ProfileParams=[\"200\",\"14\",\"900\",\"10\"]\nProfilePram1.Mold=\"-\"\nProfilePram1.ReverseDir=True\nProfilePram1.ReverseAngle=False\nProfilePram1.CalcSnipOnlyAttachLines=False\nProfilePram1.AttachDirMethod=0\nProfilePram1.CCWDefAngle=False\nProfilePram1.AddEnd1Elements(extrude_sheet3)\nProfilePram1.End1Type=1102\nProfilePram1.End1TypeParams=[\"25\",\"14.999999999999998\",\"0\",\"0\"]\nProfilePram1.AddEnd2Elements(extrude_sheet4)\nProfilePram1.End2Type=1102\nProfilePram1.End2TypeParams=[\"25\",\"14.999999999999998\",\"0\",\"0\"]\nProfilePram1.End1ScallopType=1120\nProfilePram1.End1ScallopTypeParams=[\"50\"]\nProfilePram1.End2ScallopType=1120\nProfilePram1.End2ScallopTypeParams=[\"50\"]\nprofile1 = part.CreateProfile(ProfilePram1,False)\npart.BlankElement(profile1[0],True)\npart.SetElementColor(profile1[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\npart.BlankElement(profile1[1],True)\npart.SetElementColor(profile1[1],\"148\",\"0\",\"211\",\"0.39999997615814209\")\nProfilePram2 = part.CreateProfileParam()\nProfilePram2.DefinitionType=1\nProfilePram2.BasePlane=\"PL,O,\"+var_elm1+\",\"+\"X\"\nProfilePram2.AddAttachSurfaces(extrude_sheet5)\nProfilePram2.ProfileName=\"HK.Casing.Deck.D.FR13P\"\nProfilePram2.MaterialName=\"SS400\"\nProfilePram2.ProfileType=1003\nProfilePram2.ProfileParams=[\"300\",\"90\",\"11\",\"16\",\"19\",\"9.5\"]\nProfilePram2.Mold=\"+\"\nProfilePram2.ReverseDir=True\nProfilePram2.ReverseAngle=False\nProfilePram2.CalcSnipOnlyAttachLines=False\nProfilePram2.AttachDirMethod=0\nProfilePram2.CCWDefAngle=False\nProfilePram2.AddEnd1Elements(profile1[0])\nProfilePram2.End1Type=1102\nProfilePram2.End1TypeParams=[\"25\",\"29.999999999999996\",\"0\",\"0\"]\nProfilePram2.AddEnd2Elements(extrude_sheet1)\nProfilePram2.End2Type=1102\nProfilePram2.End2TypeParams=[\"25\",\"29.999999999999996\",\"0\",\"0\"]\nProfilePram2.End1ScallopType=1120\nProfilePram2.End1ScallopTypeParams=[\"50\"]\nProfilePram2.End2ScallopType=1120\nProfilePram2.End2ScallopTypeParams=[\"50\"]\nprofile2 = part.CreateProfile(ProfilePram2,False)\npart.BlankElement(profile2[0],True)\npart.SetElementColor(profile2[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\nProfilePram3 = part.CreateProfileParam()\nProfilePram3.DefinitionType=1\nProfilePram3.BasePlane=\"PL,O,\"+var_elm1+\",\"+\"X\"\nProfilePram3.AddAttachSurfaces(extrude_sheet1)\nProfilePram3.ProfileName=\"HK.Casing.Wall.Side.FR13.CDP\"\nProfilePram3.MaterialName=\"SS400\"\nProfilePram3.ProfileType=1003\nProfilePram3.ProfileParams=[\"200\",\"90\",\"9.0000000000000018\",\"14\",\"14\",\"7\"]\nProfilePram3.Mold=\"+\"\nProfilePram3.ReverseDir=False\nProfilePram3.ReverseAngle=True\nProfilePram3.CalcSnipOnlyAttachLines=False\nProfilePram3.AttachDirMethod=0\nProfilePram3.CCWDefAngle=False\nProfilePram3.AddEnd1Elements(profile2[0])\nProfilePram3.End1Type=1102\nProfilePram3.End1TypeParams=[\"25\",\"29.999999999999996\",\"0\",\"0\"]\nProfilePram3.AddEnd2Elements(extrude_sheet2)\nProfilePram3.End2Type=1103\nProfilePram3.End2TypeParams=[\"0\"]\nProfilePram3.End1ScallopType=1120\nProfilePram3.End1ScallopTypeParams=[\"50\"]\nProfilePram3.End2ScallopType=1120\nProfilePram3.End2ScallopTypeParams=[\"50\"]\nprofile3 = part.CreateProfile(ProfilePram3,False)\npart.BlankElement(profile3[0],True)\npart.SetElementColor(profile3[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\nbracketPram1 = part.CreateBracketParam()\nbracketPram1.DefinitionType=1\nbracketPram1.BracketName=\"HK.Casing.Wall.Side.FR13.Deck.DP\"\nbracketPram1.MaterialName=\"SS400\"\nbracketPram1.BaseElement=profile3[0]\nbracketPram1.UseSideSheetForPlane=False\nbracketPram1.Mold=\"+\"\nbracketPram1.Thickness=\"7.9999999999999964\"\nbracketPram1.BracketType=1501\nbracketPram1.Scallop1Type=1801\nbracketPram1.Scallop1Params=[\"0\"]\nbracketPram1.Scallop2Type=0\nbracketPram1.Surfaces1=[profile3[0]+\",FL\"]\nbracketPram1.RevSf1=False\nbracketPram1.Surfaces2=[profile2[0]+\",FL\"]\nbracketPram1.RevSf2=False\nbracketPram1.RevSf3=False\nbracketPram1.Sf1DimensionType=1531\nbracketPram1.Sf1DimensonParams=[\"250\",\"15\"]\nbracketPram1.Sf2DimensionType=1531\nbracketPram1.Sf2DimensonParams=[\"250\",\"15\"]\nbracket1 = part.CreateBracket(bracketPram1,False)\npart.BlankElement(bracket1,True)\npart.SetElementColor(bracket1,\"0\",\"255\",\"255\",\"0.19999998807907104\")\nskt_pl3 = part.CreateSketchPlane(\"Sketch3\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl3,True)\nskt_ln19 = part.CreateSketchLine(skt_pl3,\"\",\"Default Layer\",\"2926.4779204678048,400\",\"12241.442807836524,400\",False)\nseparated_bodies1 = part.BodyDivideByCurves(\"Separe body by curves45\",bracket1,[skt_pl3],False,\"0\",\"\",\"\",False)\npart.SetElementColor(separated_bodies1[0],\"0\",\"255\",\"255\",\"0.19999998807907104\")\n\n\n```",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py",
+      "node_type": "ScriptExample"
+    }
+  },
+  {
+    "page_content": "コードチャンク\n目的: EvoShipのCOM APIを使い、船のケーシング周りの側壁・デッキ板をスケッチから押し出しで生成し、FR13/DL02基準のプロファイルとブラケットを作成して最後にスケッチ線でそのブラケットを分割する3Dモデルを自動作成する。\nコード:\n```python\nimport win32com.client\nevoship = win32com.client.DispatchEx(\"EvoShip.Application\")\nevoship.ShowMainWindow(True)\ndoc = evoship.Create3DDocument()\npart = doc.GetPart()\nskt_pl1 = part.CreateSketchPlane(\"HK.Az.Wall\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",True,False)\npart.BlankElement(skt_pl1,True)\nskt_ln1 = part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"0,-18500\",\"0,18500\",False)\nskt_ln2 = part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"-50000,15500\",\"250000,15500\",False)\nskt_ln3 = part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"-50000,-15500\",\"250000,-15500\",False)\nskt_layer1 = part.CreateSketchLayer(\"Casing.Fore\",skt_pl1)\nskt_ln4 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Fore\",\"11370.000000000002,-10394.984078409721\",\"11370.000000000002,9605.0159215902786\",False)\nskt_layer2 = part.CreateSketchLayer(\"Casing.Aft\",skt_pl1)\nskt_ln5 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Aft\",\"4019.9999999999995,-10394.984078409721\",\"4019.9999999999995,9605.0159215902786\",False)\nskt_layer3 = part.CreateSketchLayer(\"Casing.Side.P\",skt_pl1)\nskt_ln6 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Side.P\",\"-1500,4800\",\"18500,4800\",False)\nskt_layer4 = part.CreateSketchLayer(\"Casing.Side.S\",skt_pl1)\nskt_ln7 = part.CreateSketchLine(skt_pl1,\"\",\"Casing.Side.S\",\"-1500,-4800\",\"18500,-4800\",False)\nskt_layer5 = part.CreateSketchLayer(\"Dim.CenterLine\",skt_pl1)\nskt_ln8 = part.CreateSketchLine(skt_pl1,\"\",\"Dim.CenterLine\",\"-50000,0\",\"250000,0\",False)\nextrudePram1 = part.CreateLinearSweepParam()\nextrudePram1.AddProfile(skt_pl1+\",Casing.Side.P\")\nextrudePram1.DirectionType=\"2\"\nextrudePram1.DirectionParameter1=\"50000\"\nextrudePram1.DirectionParameter2=\"10000\"\nextrudePram1.SweepDirection=\"+Z\"\nextrudePram1.Name=\"HK.Casing.Wall.SideP\"\nextrudePram1.MaterialName=\"SS400\"\nextrudePram1.IntervalSweep=False\nextrude_sheet1 = part.CreateLinearSweepSheet(extrudePram1,False)\npart.SheetAlignNormal(extrude_sheet1,0,-1,0)\npart.BlankElement(extrude_sheet1,True)\npart.SetElementColor(extrude_sheet1,\"225\",\"225\",\"225\",\"1\")\nvar_elm1 = part.CreateVariable(\"FR13\",\"8970\",\"mm\",\"\")\nskt_pl2 = part.CreateSketchPlane(\"HK.Ax.Deck\",\"\",\"PL,X\",\"0\",False,False,False,\"\",\"\",\"\",True,False)\npart.BlankElement(skt_pl2,True)\nskt_ln9 = part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"15500,31800\",\"15500,-2999.9999999999964\",False)\nskt_ln10 = part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"-15499.999999999996,31800\",\"-15500,-2999.9999999999964\",False)\nskt_ln11 = part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"0,-3000\",\"0,31799.999999999996\",False)\nskt_layer6 = part.CreateSketchLayer(\"General.Deck.UpperDeck\",skt_pl2)\nskt_ln12 = part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"2000,15300\",\"18500,14933.333333333334\",False)\nskt_ln13 = part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"2000,15300\",\"-2000,15300\",False)\nskt_ln14 = part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"-2000,15300\",\"-18500,14933.333333333336\",False)\nskt_layer7 = part.CreateSketchLayer(\"Casing.Deck.A\",skt_pl2)\nskt_ln15 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.A\",\"18500,18300\",\"-18500,18300\",False)\nskt_layer8 = part.CreateSketchLayer(\"Casing.Deck.B\",skt_pl2)\nskt_ln16 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.B\",\"18500,21300\",\"-18500,21300\",False)\nskt_layer9 = part.CreateSketchLayer(\"Casing.Deck.C\",skt_pl2)\nskt_ln17 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.C\",\"18500,24300\",\"-18500,24300\",False)\nskt_layer10 = part.CreateSketchLayer(\"Casing.Deck.D\",skt_pl2)\nskt_ln18 = part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.D\",\"18500,27300\",\"-18500,27300\",False)\nextrudePram2 = part.CreateLinearSweepParam()\nextrudePram2.AddProfile(skt_pl2+\",Casing.Deck.C\")\nextrudePram2.DirectionType=\"2\"\nextrudePram2.DirectionParameter1=\"50000\"\nextrudePram2.DirectionParameter2=\"10000\"\nextrudePram2.SweepDirection=\"+X\"\nextrudePram2.Name=\"HK.Casing.Deck.C\"\nextrudePram2.MaterialName=\"SS400\"\nextrudePram2.IntervalSweep=False\nextrude_sheet2 = part.CreateLinearSweepSheet(extrudePram2,False)\npart.SheetAlignNormal(extrude_sheet2,-0,0,1)\npart.BlankElement(extrude_sheet2,True)\npart.SetElementColor(extrude_sheet2,\"225\",\"225\",\"225\",\"1\")\nextrudePram3 = part.CreateLinearSweepParam()\nextrudePram3.AddProfile(skt_pl1+\",Casing.Aft\")\nextrudePram3.DirectionType=\"2\"\nextrudePram3.DirectionParameter1=\"50000\"\nextrudePram3.DirectionParameter2=\"10000\"\nextrudePram3.SweepDirection=\"+Z\"\nextrudePram3.Name=\"HK.Casing.Wall.Aft\"\nextrudePram3.MaterialName=\"SS400\"\nextrudePram3.IntervalSweep=False\nextrude_sheet3 = part.CreateLinearSweepSheet(extrudePram3,False)\npart.SheetAlignNormal(extrude_sheet3,1,0,0)\npart.BlankElement(extrude_sheet3,True)\npart.SetElementColor(extrude_sheet3,\"225\",\"225\",\"225\",\"1\")\nvar_elm2 = part.CreateVariable(\"Casing.DL02\",\"1600\",\"mm\",\"\")\nextrudePram4 = part.CreateLinearSweepParam()\nextrudePram4.AddProfile(skt_pl1+\",Casing.Fore\")\nextrudePram4.DirectionType=\"2\"\nextrudePram4.DirectionParameter1=\"50000\"\nextrudePram4.DirectionParameter2=\"10000\"\nextrudePram4.SweepDirection=\"+Z\"\nextrudePram4.Name=\"HK.Casing.Wall.Fore\"\nextrudePram4.MaterialName=\"SS400\"\nextrudePram4.IntervalSweep=False\nextrude_sheet4 = part.CreateLinearSweepSheet(extrudePram4,False)\npart.SheetAlignNormal(extrude_sheet4,1,0,0)\npart.BlankElement(extrude_sheet4,True)\npart.SetElementColor(extrude_sheet4,\"225\",\"225\",\"225\",\"1\")\nextrudePram5 = part.CreateLinearSweepParam()\nextrudePram5.AddProfile(skt_pl2+\",Casing.Deck.D\")\nextrudePram5.DirectionType=\"2\"\nextrudePram5.DirectionParameter1=\"50000\"\nextrudePram5.DirectionParameter2=\"10000\"\nextrudePram5.SweepDirection=\"+X\"\nextrudePram5.Name=\"HK.Casing.Deck.D\"\nextrudePram5.MaterialName=\"SS400\"\nextrudePram5.IntervalSweep=False\nextrude_sheet5 = part.CreateLinearSweepSheet(extrudePram5,False)\npart.SheetAlignNormal(extrude_sheet5,-0,0,1)\npart.BlankElement(extrude_sheet5,True)\npart.SetElementColor(extrude_sheet5,\"225\",\"225\",\"225\",\"1\")\nProfilePram1 = part.CreateProfileParam()\nProfilePram1.DefinitionType=1\nProfilePram1.BasePlane=\"PL,O,\"+var_elm2+\",\"+\"Y\"\nProfilePram1.AddAttachSurfaces(extrude_sheet5)\nProfilePram1.ProfileName=\"HK.Casing.Deck.D.DL02P\"\nProfilePram1.MaterialName=\"SS400\"\nProfilePram1.FlangeName=\"HK.Casing.Deck.D.DL02P\"\nProfilePram1.FlangeMaterialName=\"SS400\"\nProfilePram1.ProfileType=1201\nProfilePram1.ProfileParams=[\"200\",\"14\",\"900\",\"10\"]\nProfilePram1.Mold=\"-\"\nProfilePram1.ReverseDir=True\nProfilePram1.ReverseAngle=False\nProfilePram1.CalcSnipOnlyAttachLines=False\nProfilePram1.AttachDirMethod=0\nProfilePram1.CCWDefAngle=False\nProfilePram1.AddEnd1Elements(extrude_sheet3)\nProfilePram1.End1Type=1102\nProfilePram1.End1TypeParams=[\"25\",\"14.999999999999998\",\"0\",\"0\"]\nProfilePram1.AddEnd2Elements(extrude_sheet4)\nProfilePram1.End2Type=1102\nProfilePram1.End2TypeParams=[\"25\",\"14.999999999999998\",\"0\",\"0\"]\nProfilePram1.End1ScallopType=1120\nProfilePram1.End1ScallopTypeParams=[\"50\"]\nProfilePram1.End2ScallopType=1120\nProfilePram1.End2ScallopTypeParams=[\"50\"]\nprofile1 = part.CreateProfile(ProfilePram1,False)\npart.BlankElement(profile1[0],True)\npart.SetElementColor(profile1[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\npart.BlankElement(profile1[1],True)\npart.SetElementColor(profile1[1],\"148\",\"0\",\"211\",\"0.39999997615814209\")\nProfilePram2 = part.CreateProfileParam()\nProfilePram2.DefinitionType=1\nProfilePram2.BasePlane=\"PL,O,\"+var_elm1+\",\"+\"X\"\nProfilePram2.AddAttachSurfaces(extrude_sheet5)\nProfilePram2.ProfileName=\"HK.Casing.Deck.D.FR13P\"\nProfilePram2.MaterialName=\"SS400\"\nProfilePram2.ProfileType=1003\nProfilePram2.ProfileParams=[\"300\",\"90\",\"11\",\"16\",\"19\",\"9.5\"]\nProfilePram2.Mold=\"+\"\nProfilePram2.ReverseDir=True\nProfilePram2.ReverseAngle=False\nProfilePram2.CalcSnipOnlyAttachLines=False\nProfilePram2.AttachDirMethod=0\nProfilePram2.CCWDefAngle=False\nProfilePram2.AddEnd1Elements(profile1[0])\nProfilePram2.End1Type=1102\nProfilePram2.End1TypeParams=[\"25\",\"29.999999999999996\",\"0\",\"0\"]\nProfilePram2.AddEnd2Elements(extrude_sheet1)\nProfilePram2.End2Type=1102\nProfilePram2.End2TypeParams=[\"25\",\"29.999999999999996\",\"0\",\"0\"]\nProfilePram2.End1ScallopType=1120\nProfilePram2.End1ScallopTypeParams=[\"50\"]\nProfilePram2.End2ScallopType=1120\nProfilePram2.End2ScallopTypeParams=[\"50\"]\nprofile2 = part.CreateProfile(ProfilePram2,False)\npart.BlankElement(profile2[0],True)\npart.SetElementColor(profile2[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\nProfilePram3 = part.CreateProfileParam()\nProfilePram3.DefinitionType=1\nProfilePram3.BasePlane=\"PL,O,\"+var_elm1+\",\"+\"X\"\nProfilePram3.AddAttachSurfaces(extrude_sheet1)\nProfilePram3.ProfileName=\"HK.Casing.Wall.Side.FR13.CDP\"\nProfilePram3.MaterialName=\"SS400\"\nProfilePram3.ProfileType=1003\nProfilePram3.ProfileParams=[\"200\",\"90\",\"9.0000000000000018\",\"14\",\"14\",\"7\"]\nProfilePram3.Mold=\"+\"\nProfilePram3.ReverseDir=False\nProfilePram3.ReverseAngle=True\nProfilePram3.CalcSnipOnlyAttachLines=False\nProfilePram3.AttachDirMethod=0\nProfilePram3.CCWDefAngle=False\nProfilePram3.AddEnd1Elements(profile2[0])\nProfilePram3.End1Type=1102\nProfilePram3.End1TypeParams=[\"25\",\"29.999999999999996\",\"0\",\"0\"]\nProfilePram3.AddEnd2Elements(extrude_sheet2)\nProfilePram3.End2Type=1103\nProfilePram3.End2TypeParams=[\"0\"]\nProfilePram3.End1ScallopType=1120\nProfilePram3.End1ScallopTypeParams=[\"50\"]\nProfilePram3.End2ScallopType=1120\nProfilePram3.End2ScallopTypeParams=[\"50\"]\nprofile3 = part.CreateProfile(ProfilePram3,False)\npart.BlankElement(profile3[0],True)\npart.SetElementColor(profile3[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\nbracketPram1 = part.CreateBracketParam()\nbracketPram1.DefinitionType=1\nbracketPram1.BracketName=\"HK.Casing.Wall.Side.FR13.Deck.DP\"\nbracketPram1.MaterialName=\"SS400\"\nbracketPram1.BaseElement=profile3[0]\nbracketPram1.UseSideSheetForPlane=False\nbracketPram1.Mold=\"+\"\nbracketPram1.Thickness=\"7.9999999999999964\"\nbracketPram1.BracketType=1501\nbracketPram1.Scallop1Type=1801\nbracketPram1.Scallop1Params=[\"0\"]\nbracketPram1.Scallop2Type=0\nbracketPram1.Surfaces1=[profile3[0]+\",FL\"]\nbracketPram1.RevSf1=False\nbracketPram1.Surfaces2=[profile2[0]+\",FL\"]\nbracketPram1.RevSf2=False\nbracketPram1.RevSf3=False\nbracketPram1.Sf1DimensionType=1531\nbracketPram1.Sf1DimensonParams=[\"250\",\"15\"]\nbracketPram1.Sf2DimensionType=1531\nbracketPram1.Sf2DimensonParams=[\"250\",\"15\"]\nbracket1 = part.CreateBracket(bracketPram1,False)\npart.BlankElement(bracket1,True)\npart.SetElementColor(bracket1,\"0\",\"255\",\"255\",\"0.19999998807907104\")\nskt_pl3 = part.CreateSketchPlane(\"Sketch3\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\npart.BlankElement(skt_pl3,True)\nskt_ln19 = part.CreateSketchLine(skt_pl3,\"\",\"Default Layer\",\"2926.4779204678048,400\",\"12241.442807836524,400\",False)\nseparated_bodies1 = part.BodyDivideByCurves(\"Separe body by curves45\",bracket1,[skt_pl3],False,\"0\",\"\",\"\",False)\npart.SetElementColor(separated_bodies1[0],\"0\",\"255\",\"255\",\"0.19999998807907104\")\n```",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0",
+      "node_type": "CodeChunk"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_0\nプロパティ:\n- code: win32com.client.DispatchEx(\"EvoShip.Application\")\n- order: 0",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_0",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_1\nプロパティ:\n- code: evoship.ShowMainWindow(True)\n- order: 1",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_1",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_2\nプロパティ:\n- code: evoship.Create3DDocument()\n- order: 2",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_2",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_3\nプロパティ:\n- code: doc.GetPart()\n- order: 3",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_3",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_4\nプロパティ:\n- code: part.CreateSketchPlane(\"HK.Az.Wall\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",True,False)\n- order: 4",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_4",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_5\nプロパティ:\n- code: part.BlankElement(skt_pl1,True)\n- order: 5",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_5",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_6\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"0,-18500\",\"0,18500\",False)\n- order: 6",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_6",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_7\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"-50000,15500\",\"250000,15500\",False)\n- order: 7",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_7",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_8\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"作図\",\"-50000,-15500\",\"250000,-15500\",False)\n- order: 8",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_8",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_9\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Fore\",skt_pl1)\n- order: 9",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_9",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_10\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"Casing.Fore\",\"11370.000000000002,-10394.984078409721\",\"11370.000000000002,9605.0159215902786\",False)\n- order: 10",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_10",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_11\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Aft\",skt_pl1)\n- order: 11",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_11",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_12\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"Casing.Aft\",\"4019.9999999999995,-10394.984078409721\",\"4019.9999999999995,9605.0159215902786\",False)\n- order: 12",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_12",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_13\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Side.P\",skt_pl1)\n- order: 13",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_13",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_14\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"Casing.Side.P\",\"-1500,4800\",\"18500,4800\",False)\n- order: 14",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_14",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_15\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Side.S\",skt_pl1)\n- order: 15",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_15",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_16\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"Casing.Side.S\",\"-1500,-4800\",\"18500,-4800\",False)\n- order: 16",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_16",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_17\nプロパティ:\n- code: part.CreateSketchLayer(\"Dim.CenterLine\",skt_pl1)\n- order: 17",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_17",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_18\nプロパティ:\n- code: part.CreateSketchLine(skt_pl1,\"\",\"Dim.CenterLine\",\"-50000,0\",\"250000,0\",False)\n- order: 18",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_18",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_19\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 19",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_19",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_20\nプロパティ:\n- code: extrudePram1.AddProfile(skt_pl1+\",Casing.Side.P\")\n- order: 20",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_20",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_21\nプロパティ:\n- code: part.CreateLinearSweepSheet(extrudePram1,False)\n- order: 21",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_21",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_22\nプロパティ:\n- code: part.SheetAlignNormal(extrude_sheet1,0,-1,0)\n- order: 22",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_22",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_23\nプロパティ:\n- code: part.BlankElement(extrude_sheet1,True)\n- order: 23",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_23",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_24\nプロパティ:\n- code: part.SetElementColor(extrude_sheet1,\"225\",\"225\",\"225\",\"1\")\n- order: 24",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_24",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_25\nプロパティ:\n- code: part.CreateVariable(\"FR13\",\"8970\",\"mm\",\"\")\n- order: 25",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_25",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_26\nプロパティ:\n- code: part.CreateSketchPlane(\"HK.Ax.Deck\",\"\",\"PL,X\",\"0\",False,False,False,\"\",\"\",\"\",True,False)\n- order: 26",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_26",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_27\nプロパティ:\n- code: part.BlankElement(skt_pl2,True)\n- order: 27",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_27",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_28\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"15500,31800\",\"15500,-2999.9999999999964\",False)\n- order: 28",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_28",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_29\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"-15499.999999999996,31800\",\"-15500,-2999.9999999999964\",False)\n- order: 29",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_29",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_30\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"作図\",\"0,-3000\",\"0,31799.999999999996\",False)\n- order: 30",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_30",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_31\nプロパティ:\n- code: part.CreateSketchLayer(\"General.Deck.UpperDeck\",skt_pl2)\n- order: 31",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_31",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_32\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"2000,15300\",\"18500,14933.333333333334\",False)\n- order: 32",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_32",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_33\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"2000,15300\",\"-2000,15300\",False)\n- order: 33",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_33",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_34\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"General.Deck.UpperDeck\",\"-2000,15300\",\"-18500,14933.333333333336\",False)\n- order: 34",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_34",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_35\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Deck.A\",skt_pl2)\n- order: 35",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_35",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_36\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.A\",\"18500,18300\",\"-18500,18300\",False)\n- order: 36",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_36",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_37\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Deck.B\",skt_pl2)\n- order: 37",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_37",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_38\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.B\",\"18500,21300\",\"-18500,21300\",False)\n- order: 38",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_38",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_39\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Deck.C\",skt_pl2)\n- order: 39",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_39",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_40\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.C\",\"18500,24300\",\"-18500,24300\",False)\n- order: 40",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_40",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_41\nプロパティ:\n- code: part.CreateSketchLayer(\"Casing.Deck.D\",skt_pl2)\n- order: 41",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_41",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_42\nプロパティ:\n- code: part.CreateSketchLine(skt_pl2,\"\",\"Casing.Deck.D\",\"18500,27300\",\"-18500,27300\",False)\n- order: 42",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_42",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_43\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 43",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_43",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_44\nプロパティ:\n- code: extrudePram2.AddProfile(skt_pl2+\",Casing.Deck.C\")\n- order: 44",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_44",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_45\nプロパティ:\n- code: part.CreateLinearSweepSheet(extrudePram2,False)\n- order: 45",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_45",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_46\nプロパティ:\n- code: part.SheetAlignNormal(extrude_sheet2,-0,0,1)\n- order: 46",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_46",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_47\nプロパティ:\n- code: part.BlankElement(extrude_sheet2,True)\n- order: 47",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_47",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_48\nプロパティ:\n- code: part.SetElementColor(extrude_sheet2,\"225\",\"225\",\"225\",\"1\")\n- order: 48",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_48",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_49\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 49",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_49",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_50\nプロパティ:\n- code: extrudePram3.AddProfile(skt_pl1+\",Casing.Aft\")\n- order: 50",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_50",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_51\nプロパティ:\n- code: part.CreateLinearSweepSheet(extrudePram3,False)\n- order: 51",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_51",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_52\nプロパティ:\n- code: part.SheetAlignNormal(extrude_sheet3,1,0,0)\n- order: 52",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_52",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_53\nプロパティ:\n- code: part.BlankElement(extrude_sheet3,True)\n- order: 53",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_53",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_54\nプロパティ:\n- code: part.SetElementColor(extrude_sheet3,\"225\",\"225\",\"225\",\"1\")\n- order: 54",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_54",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_55\nプロパティ:\n- code: part.CreateVariable(\"Casing.DL02\",\"1600\",\"mm\",\"\")\n- order: 55",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_55",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_56\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 56",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_56",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_57\nプロパティ:\n- code: extrudePram4.AddProfile(skt_pl1+\",Casing.Fore\")\n- order: 57",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_57",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_58\nプロパティ:\n- code: part.CreateLinearSweepSheet(extrudePram4,False)\n- order: 58",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_58",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_59\nプロパティ:\n- code: part.SheetAlignNormal(extrude_sheet4,1,0,0)\n- order: 59",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_59",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_60\nプロパティ:\n- code: part.BlankElement(extrude_sheet4,True)\n- order: 60",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_60",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_61\nプロパティ:\n- code: part.SetElementColor(extrude_sheet4,\"225\",\"225\",\"225\",\"1\")\n- order: 61",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_61",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_62\nプロパティ:\n- code: part.CreateLinearSweepParam()\n- order: 62",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_62",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_63\nプロパティ:\n- code: extrudePram5.AddProfile(skt_pl2+\",Casing.Deck.D\")\n- order: 63",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_63",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_64\nプロパティ:\n- code: part.CreateLinearSweepSheet(extrudePram5,False)\n- order: 64",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_64",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_65\nプロパティ:\n- code: part.SheetAlignNormal(extrude_sheet5,-0,0,1)\n- order: 65",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_65",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_66\nプロパティ:\n- code: part.BlankElement(extrude_sheet5,True)\n- order: 66",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_66",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_67\nプロパティ:\n- code: part.SetElementColor(extrude_sheet5,\"225\",\"225\",\"225\",\"1\")\n- order: 67",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_67",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_68\nプロパティ:\n- code: part.CreateProfileParam()\n- order: 68",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_68",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_69\nプロパティ:\n- code: ProfilePram1.AddAttachSurfaces(extrude_sheet5)\n- order: 69",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_69",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_70\nプロパティ:\n- code: ProfilePram1.AddEnd1Elements(extrude_sheet3)\n- order: 70",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_70",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_71\nプロパティ:\n- code: ProfilePram1.AddEnd2Elements(extrude_sheet4)\n- order: 71",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_71",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_72\nプロパティ:\n- code: part.CreateProfile(ProfilePram1,False)\n- order: 72",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_72",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_73\nプロパティ:\n- code: part.BlankElement(profile1[0],True)\n- order: 73",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_73",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_74\nプロパティ:\n- code: part.SetElementColor(profile1[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\n- order: 74",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_74",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_75\nプロパティ:\n- code: part.BlankElement(profile1[1],True)\n- order: 75",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_75",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_76\nプロパティ:\n- code: part.SetElementColor(profile1[1],\"148\",\"0\",\"211\",\"0.39999997615814209\")\n- order: 76",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_76",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_77\nプロパティ:\n- code: part.CreateProfileParam()\n- order: 77",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_77",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_78\nプロパティ:\n- code: ProfilePram2.AddAttachSurfaces(extrude_sheet5)\n- order: 78",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_78",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_79\nプロパティ:\n- code: ProfilePram2.AddEnd1Elements(profile1[0])\n- order: 79",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_79",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_80\nプロパティ:\n- code: ProfilePram2.AddEnd2Elements(extrude_sheet1)\n- order: 80",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_80",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_81\nプロパティ:\n- code: part.CreateProfile(ProfilePram2,False)\n- order: 81",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_81",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_82\nプロパティ:\n- code: part.BlankElement(profile2[0],True)\n- order: 82",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_82",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_83\nプロパティ:\n- code: part.SetElementColor(profile2[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\n- order: 83",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_83",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_84\nプロパティ:\n- code: part.CreateProfileParam()\n- order: 84",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_84",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_85\nプロパティ:\n- code: ProfilePram3.AddAttachSurfaces(extrude_sheet1)\n- order: 85",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_85",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_86\nプロパティ:\n- code: ProfilePram3.AddEnd1Elements(profile2[0])\n- order: 86",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_86",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_87\nプロパティ:\n- code: ProfilePram3.AddEnd2Elements(extrude_sheet2)\n- order: 87",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_87",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_88\nプロパティ:\n- code: part.CreateProfile(ProfilePram3,False)\n- order: 88",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_88",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_89\nプロパティ:\n- code: part.BlankElement(profile3[0],True)\n- order: 89",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_89",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_90\nプロパティ:\n- code: part.SetElementColor(profile3[0],\"148\",\"0\",\"211\",\"0.39999997615814209\")\n- order: 90",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_90",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_91\nプロパティ:\n- code: part.CreateBracketParam()\n- order: 91",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_91",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_92\nプロパティ:\n- code: part.CreateBracket(bracketPram1,False)\n- order: 92",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_92",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_93\nプロパティ:\n- code: part.BlankElement(bracket1,True)\n- order: 93",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_93",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_94\nプロパティ:\n- code: part.SetElementColor(bracket1,\"0\",\"255\",\"255\",\"0.19999998807907104\")\n- order: 94",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_94",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_95\nプロパティ:\n- code: part.CreateSketchPlane(\"Sketch3\",\"\",\"PL,Z\",\"0\",False,False,False,\"\",\"\",\"\",False,False)\n- order: 95",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_95",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_96\nプロパティ:\n- code: part.BlankElement(skt_pl3,True)\n- order: 96",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_96",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_97\nプロパティ:\n- code: part.CreateSketchLine(skt_pl3,\"\",\"Default Layer\",\"2926.4779204678048,400\",\"12241.442807836524,400\",False)\n- order: 97",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_97",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_98\nプロパティ:\n- code: part.BodyDivideByCurves(\"Separe body by curves45\",bracket1,[skt_pl3],False,\"0\",\"\",\"\",False)\n- order: 98",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_98",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "ノードタイプ: MethodCall\nID: buraketto.py_chunk_0_call_99\nプロパティ:\n- code: part.SetElementColor(separated_bodies1[0],\"0\",\"255\",\"255\",\"0.19999998807907104\")\n- order: 99",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "buraketto.py_chunk_0_call_99",
+      "node_type": "MethodCall"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "DispatchEx",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ShowMainWindow",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "Create3DDocument",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "GetPart",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateLinearSweepParam",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "AddProfile",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateProfileParam",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "AddAttachLines",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "AddAttachSurfaces",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateBracketParam",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "CreateSTLOption",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ExporAsSTL",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "GetViews",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "SetDirection",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "ExportToBitmap",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "AddEnd1Elements",
+      "node_type": "Method"
+    }
+  },
+  {
+    "page_content": "APIメソッド\nメソッド名: \n説明:",
+    "metadata": {
+      "source": "graph_node",
+      "node_id": "AddEnd2Elements",
+      "node_type": "Method"
+    }
+  }
+]

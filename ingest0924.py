@@ -6,6 +6,8 @@ import re
 import json
 from typing import List, Dict, Any, Optional, Tuple
 import shutil
+# ★★★ 変更点 ★★★
+from datetime import datetime # タイムスタンプのためにdatetimeをインポート
 
 from bs4 import BeautifulSoup
 from langchain_openai import ChatOpenAI
@@ -49,17 +51,12 @@ OPENAI_API_KEY = config.OPENAI_API_KEY
 # LLMのインスタンスをグローバルに定義 (HTML解析とコードチャンクの目的抽出で使用)
 llm = ChatOpenAI(temperature=1, model_name="gpt-5", openai_api_key=OPENAI_API_KEY)
 
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-# ★★★ アイデア2実装のための変更箇所 START ★★★
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
 def _split_script_into_chunks(script_content: str) -> List[str]:
     """
     スクリプトを連続する2つ以上の改行で分割し、コードチャンクのリストを返す。
     """
-    # 2つ以上連続する改行（間に空白行があってもよい）を区切り文字として分割
     chunks = re.split(r'\n\s*\n', script_content.strip())
-    # 空のチャンクを除外して返す
     return [chunk.strip() for chunk in chunks if chunk.strip()]
 
 def _get_chunk_purpose(chunk_content: str) -> str:
@@ -86,41 +83,33 @@ def extract_triples_from_script(
     triples: List[Dict[str, Any]] = []
     node_props: Dict[str, Dict[str, Any]] = {}
 
-    # スクリプト全体を表すノードを作成
     script_node_id = script_path
     node_props[script_node_id] = {
         "type": "ScriptExample",
         "properties": {
             "name": script_path,
-            "code": script_text  # 全文コードをプロパティに保持
+            "code": script_text
         }
     }
 
-    # スクリプトをチャンクに分割
     chunks = _split_script_into_chunks(script_text)
     
-    # スクリプト全体で呼び出されているメソッドを記録 (IS_EXAMPLE_OFのため)
     all_methods_in_script = set()
 
-    # 各チャンクを処理
     for i, chunk_text in enumerate(chunks):
-        # チャンクの目的をLLMで抽出
         print(f"      - チャンク {i+1}/{len(chunks)} の目的を抽出中...")
         purpose = _get_chunk_purpose(chunk_text)
 
-        # CodeChunkノードを作成
         chunk_node_id = f"{script_path}_chunk_{i}"
         node_props[chunk_node_id] = {
             "type": "CodeChunk",
             "properties": {"purpose": purpose, "code": chunk_text, "order": i}
         }
-        # ScriptExample と CodeChunk を接続
         triples.append({
             "source": script_node_id, "source_type": "ScriptExample",
             "label": "HAS_CHUNK", "target": chunk_node_id, "target_type": "CodeChunk"
         })
 
-        # チャンク内のメソッド呼び出しを抽出
         method_calls_in_chunk = _extract_method_calls_from_script(chunk_text)
         prev_call_node_id_in_chunk = None
 
@@ -128,26 +117,22 @@ def extract_triples_from_script(
             method_name = call["method_name"]
             all_methods_in_script.add(method_name)
             
-            # MethodCallノードを作成 (IDはグローバルで一意になるように)
             call_node_id = f"{script_path}_chunk_{i}_call_{j}"
             node_props[call_node_id] = {
                 "type": "MethodCall",
                 "properties": {"code": call["full_text"], "order": j}
             }
             
-            # CodeChunk と MethodCall を接続
             triples.append({
                 "source": chunk_node_id, "source_type": "CodeChunk",
                 "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
             })
             
-            # MethodCall と Method を接続
             triples.append({
                 "source": call_node_id, "source_type": "MethodCall",
                 "label": "CALLS", "target": method_name, "target_type": "Method"
             })
 
-            # チャンク内の連続する呼び出しを NEXT で接続
             if prev_call_node_id_in_chunk:
                 triples.append({
                     "source": prev_call_node_id_in_chunk, "source_type": "MethodCall",
@@ -156,7 +141,6 @@ def extract_triples_from_script(
             
             prev_call_node_id_in_chunk = call_node_id
 
-    # 最後に、ScriptExampleからすべてのMethodへのIS_EXAMPLE_OFリレーションを追加
     for method_name in all_methods_in_script:
         triples.append({
             "source": script_node_id, "source_type": "ScriptExample",
@@ -164,11 +148,6 @@ def extract_triples_from_script(
         })
 
     return triples, node_props
-
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★
-# ★★★ アイデア2実装のための変更箇所 END ★★★
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★
-
 
 def _read_api_text() -> str:
     """api.txt を候補パスから読み込む"""
@@ -282,9 +261,6 @@ def _extract_graph_from_html(
 
 
 def _normalize_text(text: str) -> str:
-    """
-    改行/タブ/空白の揺れを正規化。
-    """
     text = text.replace("\ufeff", "")
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = "\n".join(line.rstrip() for line in text.split("\n"))
@@ -293,7 +269,6 @@ def _normalize_text(text: str) -> str:
     return text
 
 def _to_object_id_from_header(header: str) -> str:
-    """'■Partオブジェクトのメソッド' → 'Part'"""
     s = header.strip()
     s = re.sub(r"^■", "", s)
     s = s.replace("のメソッド", "")
@@ -301,14 +276,12 @@ def _to_object_id_from_header(header: str) -> str:
     return s.strip()
 
 def _guess_return_type_from_desc(desc: str) -> str:
-    """返り値説明からおおまかに型を推定。"""
     d = desc or ""
     if re.search(r"\bID\b", d, flags=re.IGNORECASE) or ("要素ID" in d):
         return "ID"
     return "不明"
 
 def _parse_api_specs(text: str) -> List[Dict[str, Any]]:
-    """api.txt からAPI仕様の構造体配列を返す"""
     lines = text.split("\n")
     closing_pat = re.compile(r"\)\s*;?(?:\s*//.*)?$")
     param_pat = re.compile(
@@ -396,7 +369,6 @@ def _parse_api_specs(text: str) -> List[Dict[str, Any]]:
     return entries
 
 def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
-    """api_arg.txt を解析し、データ型名とその説明の辞書を返す。"""
     descriptions = {}
     current_type = None
     current_desc_lines = []
@@ -426,18 +398,15 @@ def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
 def extract_triples_from_specs(
     api_text: str, type_descriptions: Dict[str, str]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-    """仕様テキストからノード/リレーションのトリプルを生成する。"""
     entries = _parse_api_specs(api_text)
 
     triples: List[Dict[str, Any]] = []
     node_props: Dict[str, Dict[str, Any]] = {}
 
     def _clean_type_name(type_name: str) -> str:
-        """'点(2D)' -> '点' のように型名から括弧書きを削除"""
         return re.sub(r"\s*\(.+\)$", "", type_name).strip()
 
     def create_data_type_node(raw_type_name: str) -> str:
-        """DataTypeノードの定義を作成し、クリーンな型名を返す。"""
         cleaned_type_name = _clean_type_name(raw_type_name)
         if cleaned_type_name not in node_props:
             properties = {"name": cleaned_type_name}
@@ -497,7 +466,6 @@ def extract_triples_from_specs(
     return triples, node_props
 
 def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, str]]:
-    """tree-sitter を使ってスクリプトからAPIメソッドの呼び出しを抽出する"""
     tree = parser.parse(bytes(script_text, "utf8"))
     root_node = tree.root_node
     calls = []
@@ -523,7 +491,6 @@ def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, str]]:
     return calls
 
 def _triples_to_graph_documents(triples: List[Dict[str, Any]], node_props: Dict[str, Dict[str, Any]]) -> List[GraphDocument]:
-    """トリプルとノード属性から GraphDocument 群を作る"""
     node_map: Dict[str, Node] = {}
     for node_id, meta in node_props.items():
         if node_id in node_map:
@@ -561,7 +528,6 @@ def _triples_to_graph_documents(triples: List[Dict[str, Any]], node_props: Dict[
 
 
 def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
-    """Neo4j をリセットしてから GraphDocument を投入する"""
     graph = Neo4jGraph(
         url=NEO4J_URI,
         username=NEO4J_USER,
@@ -585,7 +551,6 @@ def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
 def _build_and_load_chroma(
     api_entries: List[Dict[str, Any]], script_files: List[Tuple[str, str]]
     ) -> None:
-    """API仕様とスクリプト例、HTMLドキュメントからベクトルDB (Chroma) を構築・永続化する"""
     print("\n🚀 ChromaDBのベクトルデータを生成・保存中...")
 
     if CHROMA_PERSIST_DIR.exists():
@@ -669,18 +634,17 @@ def _build_and_load_neo4j() -> None:
         script_node_props = all_script_node_props
         print(f"✔ スクリプト例からトリプルを総計: {len(script_triples)} 件")
 
-    # --- 3. データの統合とグラフ構築 ---
-    print("\n🔗 データを統合してグラフを構築中...")
-    all_triples = spec_triples + script_triples
-    all_node_props = spec_node_props.copy()
-    all_node_props.update(script_node_props)
-    gdocs = _triples_to_graph_documents(all_triples, all_node_props)
+    # --- 3. データの統合準備 ---
+    gdocs = _triples_to_graph_documents(spec_triples + script_triples, {**spec_node_props, **script_node_props})
     
     # --- 4. 非構造化データ (HTML) の解析 ---
     print("\n📄 HTMLドキュメントをLLMで解析中...")
     html_files = _read_html_files()
+    # ★★★ 変更点 ★★★ JSON出力用にHTMLからの抽出結果を保持するリスト
+    serializable_html_data = []
     if not html_files:
         print("⚠ data ディレクトリに解析対象の .html ファイルが見つかりませんでした。")
+        html_graph_docs = []
     else:
         html_graph_docs = []
         for file_name, html_content in html_files:
@@ -691,7 +655,21 @@ def _build_and_load_neo4j() -> None:
                 if not graph_docs_from_html or (not graph_docs_from_html[0].nodes and not graph_docs_from_html[0].relationships):
                     print("      - データは抽出されませんでした。")
                 else:
+                    # ★★★ 変更点 ★★★ 抽出結果をJSONシリアライズ可能な形式に変換
                     for doc in graph_docs_from_html:
+                        serializable_html_data.append({
+                            "file_name": file_name,
+                            "nodes": [node.__dict__ for node in doc.nodes],
+                            "relationships": [
+                                {
+                                    "source": rel.source.id,
+                                    "target": rel.target.id,
+                                    "type": rel.type,
+                                    "properties": rel.properties
+                                }
+                                for rel in doc.relationships
+                            ]
+                        })
                         if doc.nodes:
                             print("      - Nodes:")
                             for node in doc.nodes:
@@ -703,9 +681,39 @@ def _build_and_load_neo4j() -> None:
                 html_graph_docs.extend(graph_docs_from_html)
             except Exception as e:
                 print(f"  ⚠ ファイル '{file_name}' の解析中にエラーが発生しました: {e}")
-        gdocs.extend(html_graph_docs)
         print(f"✔ HTMLドキュメントからグラフ情報を抽出しました。")
 
+    # ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    # ★★★ 新機能: 抽出した全トリプル情報をJSONファイルに出力 ★★★
+    # ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    print("\n💾 抽出したトリプルをJSONファイルに出力中...")
+    output_data = {
+        "timestamp": datetime.now().isoformat(),
+        "sources": {
+            "api_specifications": {
+                "triples": spec_triples,
+                "node_properties": spec_node_props
+            },
+            "script_examples": {
+                "triples": script_triples,
+                "node_properties": script_node_props
+            },
+            "html_documents": serializable_html_data
+        }
+    }
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"extracted_triples_{timestamp_str}.json"
+    try:
+        with open(output_filename, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, ensure_ascii=False, indent=2)
+        print(f"✔ データを '{output_filename}' に保存しました。")
+    except Exception as e:
+        print(f"⚠ JSONファイルの保存中にエラーが発生しました: {e}")
+
+
+    # --- 5. グラフDBへのデータ投入 ---
+    print("\n🔗 データを統合してグラフを構築中...")
+    gdocs.extend(html_graph_docs)
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
         print(f"✔ グラフデータベースの再構築が完了しました: ノード={node_count}, リレーションシップ={rel_count}")
