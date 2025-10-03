@@ -2,13 +2,12 @@
 使い方:
 [モード1: 新規スクリプト生成]
     python query.py "<質問文>" vector     # ベクトル検索で新規作成
-    python query.py "<質問文>" graph      # グラフ検索で新規作成
-    python query.py "<質問文>" hybrid     # ハイブリッド検索で新規作成
+    python query.py "<質問文>" hybrid  
 
 [モード2: 既存スクリプト編集]
     python query.py <ファイルパス> "<編集指示>" vector
     python query.py <ファイルパス> "<編集指示>" graph
-    python query.py ./board.py "板の四隅に直方体の柱を追加してください。" hybrid
+    python query0929.py ./board.py "板の四隅に直方体の柱を追加してください。" hybrid
 
 [デフォルトの動作]
 - ルートを省略した場合は 'graph' が採用されます。

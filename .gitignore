@@ -2,4 +2,7 @@ data/
 .env
 __pycache__/
 chroma/
-
+*.json
+*.md
+*.xml
+data_copy/
