@@ -257,27 +257,52 @@ def ask(question: str, route: str = "graph", original_code: str = None) -> str:
 # \---------- CLI 入口 ----------
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(textwrap.dedent(__doc__))
-        sys.exit(1)
+    import argparse
+    import re
+
+    # --- 引数パーサーの設定 ---
+    parser = argparse.ArgumentParser(
+        description="Generate or edit Python scripts for EvoShip based on user instructions.",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=textwrap.dedent(__doc__)
+    )
+    parser.add_argument(
+        "first_arg", 
+        help="Either a question in quotes (for new scripts) or a file path (for editing)."
+    )
+    parser.add_argument(
+        "instruction", 
+        nargs='?', 
+        help="The editing instruction in quotes (required in edit mode)."
+    )
+    parser.add_argument(
+        "route", 
+        nargs='?', 
+        default="graph", 
+        choices=['vector', 'graph', 'hybrid'],
+        help="The search route to use. Defaults to 'graph'."
+    )
+    parser.add_argument(
+        "-o", "--output", 
+        help="The file path to save the generated Python script."
+    )
+    
+    args = parser.parse_args()
 
     original_code = None
     question = ""
-    route = "graph" # デフォルトルート
-
-# --- 引数の解析 ---
-    # 最初の引数がファイルパスかどうかでモードを切り替える
-    first_arg = sys.argv[1]
-
-    # [モード2: 編集モード] python query.py <ファイルパス> "<指示>" [ルート]
-    if os.path.exists(first_arg):
-        if len(sys.argv) < 3:
-            print("エラー: 編集モードでは <ファイルパス> と \"<編集指示>\" の両方が必要です。")
-            print(textwrap.dedent(__doc__))
+    
+    # --- 引数の解析とモード判定 ---
+    # [モード2: 編集モード]
+    if os.path.exists(args.first_arg):
+        if not args.instruction:
+            print("エラー: 編集モードでは<ファイルパス>と<編集指示>の両方が必要です。")
+            parser.print_help()
             sys.exit(1)
         
-        file_path = first_arg
-        question = sys.argv[2] # 編集指示
+        file_path = args.first_arg
+        question = args.instruction
+        route = args.route
         
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -287,21 +312,48 @@ if __name__ == "__main__":
             print(f"エラー: ファイル '{file_path}' の読み込み中にエラーが発生しました: {e}")
             sys.exit(1)
             
-        if len(sys.argv) > 3:
-            route = sys.argv[3].lower()
-
-    # [モード1: 新規作成モード] python query.py "<質問>" [ルート]
+    # [モード1: 新規作成モード]
     else:
-        question = first_arg # 質問文
+        question = args.first_arg
+        route = args.instruction if args.instruction in ['vector', 'graph', 'hybrid'] else args.route
         print("--- [Mode: Create New] ---")
-        if len(sys.argv) > 2:
-            route = sys.argv[2].lower()
 
     # --- 実行 ---
     try:
         answer = ask(question, route, original_code=original_code)
-        print("\n--- Generated Answer ---")
-        print(answer)
+        
+        # --- 出力処理 ---
+        if args.output:
+            # スクリプト部分を正規表現で抽出
+            script_match = re.search(r"```python\n(.*?)```", answer, re.DOTALL)
+            if script_match:
+                script_code = script_match.group(1).strip()
+                
+                # スクリプトをファイルに書き込む
+                with open(args.output, 'w', encoding='utf-8') as f:
+                    f.write(script_code)
+                print(f"\n--- Script saved to: {args.output} ---")
+
+                # 説明部分を抽出して表示
+                explanation_match = re.search(r"### スクリプトの説明\n\n(.*)", answer, re.DOTALL)
+                if explanation_match:
+                    explanation = explanation_match.group(1).strip()
+                    print("\n--- Script Explanation ---")
+                    print(explanation)
+                else:
+                    # スクリプト以外の部分を説明として表示
+                    remaining_answer = re.sub(r"```python\n(.*?)```", "", answer, flags=re.DOTALL).strip()
+                    print("\n--- Answer ---")
+                    print(remaining_answer)
+
+            else:
+                print("\n--- Generated Answer (script not found) ---")
+                print(answer)
+        else:
+            # 出力ファイルが指定されていない場合は、従来通り全体を出力
+            print("\n--- Generated Answer ---")
+            print(answer)
+
     except ValueError as e:
         print(f"\nエラー: {e}")
     except Exception as e:
