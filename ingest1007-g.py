@@ -48,7 +48,7 @@ GEMINI_API_KEY = config.GEMINI_API_KEY
 
 # 構造化データの抽出精度を高めるため、temperatureを0に設定
 # モデルをChatOpenAIからChatGoogleGenerativeAIに変更
-llm = ChatGoogleGenerativeAI(temperature=0, model="gemini-1.5-pro", google_api_key=GEMINI_API_KEY)
+llm = ChatGoogleGenerativeAI(temperature=0, model="gemini-2.5-pro", google_api_key=GEMINI_API_KEY)
 # --- 変更箇所: End ---
 
 def _split_script_into_chunks(script_content: str) -> List[str]:
