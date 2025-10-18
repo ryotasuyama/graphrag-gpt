@@ -42,7 +42,7 @@ CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 OPENAI_API_KEY = config.OPENAI_API_KEY
 
 # モデル名を "gpt-4-turbo" など、利用可能なモデルに変更してください
-llm = ChatOpenAI(temperature=1, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
+llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
 
 def _split_script_into_chunks(script_content: str) -> List[str]:
     """
@@ -246,6 +246,8 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
     - `id`はスキーマ定義に従って一意に命名してください。
     - DataTypeノードは、仕様書に登場するすべての型を重複なくリストアップしてください。もし型が明記されていない場合は、説明文から推測し、「文字列」「数値」「ID」「不明」などを適切に割り当ててください。特にIDを返しそうな場合は「ID」としてください。
     - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
+    - JSONオブジェクトにはコメントをいれないでください。
+    - 必ずJSONオブジェクトで出力してください。
 
     --- API仕様書テキスト ---
     {raw_text}
