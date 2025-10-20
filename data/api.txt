@@ -566,7 +566,7 @@ CreateLine(
 CreateArc(
         CenterPoint,// 点(3D)：中心点
         Normal,     // 方向：軸方向
-        MajorDir,   // 方向：主軸方向(パラメータ０の位置方向
+        MajorDir,   // 方向：主軸方向(パラメータ０の位置方向)
         Radius,     // 長さ：半径
         bClose,     // bool： Trueの時は円を作成する
         Range )     // 範囲: (0-2pi)

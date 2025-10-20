@@ -41,32 +41,10 @@ parser = Parser(PY_LANGUAGE)
 CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 OPENAI_API_KEY = config.OPENAI_API_KEY
 
-# 構造化データの抽出精度を高めるため、temperatureを0に設定
-llm = ChatOpenAI(temperature=1, model_name="gpt-5", openai_api_key=OPENAI_API_KEY)
+# モデル名を "gpt-4-turbo" など、利用可能なモデルに変更してください
+llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
 
-def _split_script_into_chunks(script_content: str) -> List[str]:
-    """
-    スクリプトを連続する2つ以上の改行で分割し、コードチャンクのリストを返す。
-    """
-    chunks = re.split(r'\n\s*\n', script_content.strip())
-    return [chunk.strip() for chunk in chunks if chunk.strip()]
 
-def _get_chunk_purpose(chunk_content: str) -> str:
-    """LLMを使ってコードチャンクの目的を生成する"""
-    prompt = f"""
-    以下のPythonコードの断片が、APIを呼び出して何を行おうとしているのか、その目的を簡潔な日本語の一文で説明してください。
-
-    ```python
-    {chunk_content}
-    ```
-    このコードの目的:
-    """
-    try:
-        response = llm.invoke(prompt)
-        return response.content.strip()
-    except Exception as e:
-        print(f"      ⚠ コードチャンクの目的生成中にエラー: {e}")
-        return "目的の生成に失敗しました。"
 
 def extract_triples_from_script(
     script_path: str, script_text: str
@@ -84,54 +62,73 @@ def extract_triples_from_script(
         }
     }
 
-    chunks = _split_script_into_chunks(script_text)
-    
     all_methods_in_script = set()
 
-    for i, chunk_text in enumerate(chunks):
-        print(f"      - チャンク {i+1}/{len(chunks)} の目的を抽出中...")
-        purpose = _get_chunk_purpose(chunk_text)
+    # データフローを追跡するため、スクリプト内で変数がどのメソッド呼び出しから生成されたかを記録する
+    # { "変数名": "生成元のMethodCallノードID" }
+    variable_to_source_call_id: Dict[str, str] = {}
 
-        chunk_node_id = f"{script_path}_chunk_{i}"
-        node_props[chunk_node_id] = {
-            "type": "CodeChunk",
-            "properties": {"purpose": purpose, "code": chunk_text, "order": i}
+    method_calls_in_script = _extract_method_calls_from_script(script_text)
+    prev_call_node_id = None
+
+    for i, call in enumerate(method_calls_in_script):
+        method_name = call["method_name"]
+        all_methods_in_script.add(method_name)
+        
+        call_node_id = f"{script_path}_call_{i}"
+        node_props[call_node_id] = {
+            "type": "MethodCall",
+            "properties": {"code": call["full_text"], "order": i}
         }
+        
+        # ScriptExampleノードに直接CONTAINSリレーションで関連付ける
         triples.append({
             "source": script_node_id, "source_type": "ScriptExample",
-            "label": "HAS_CHUNK", "target": chunk_node_id, "target_type": "CodeChunk"
+            "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
+        })
+        
+        triples.append({
+            "source": call_node_id, "source_type": "MethodCall",
+            "label": "CALLS", "target": method_name, "target_type": "Method"
         })
 
-        method_calls_in_chunk = _extract_method_calls_from_script(chunk_text)
-        prev_call_node_id_in_chunk = None
+        # --- データフロー解析 ---
+        # 1. 現在のメソッド呼び出しの引数を解析する
+        arguments_node = call["node"].child_by_field_name("arguments")
+        if arguments_node:
+            # 引数ノード内のすべての変数名（identifier）を再帰的に探索
+            arg_vars = []
+            def find_identifiers(n):
+                if n.type == 'identifier':
+                    arg_vars.append(n.text.decode('utf8'))
+                for child in n.children:
+                    find_identifiers(child)
+            find_identifiers(arguments_node)
+            
+            # 見つかった変数について、それが以前のメソッド呼び出しの結果であるかチェック
+            for var_name in set(arg_vars): # setで重複したリレーションを防止
+                if var_name in variable_to_source_call_id:
+                    source_call_node_id = variable_to_source_call_id[var_name]
+                    # データフローを示す PASSES_RESULT_TO リレーションを追加
+                    triples.append({
+                        "source": source_call_node_id, "source_type": "MethodCall",
+                        "label": "PASSES_RESULT_TO", 
+                        "target": call_node_id, "target_type": "MethodCall"
+                    })
 
-        for j, call in enumerate(method_calls_in_chunk):
-            method_name = call["method_name"]
-            all_methods_in_script.add(method_name)
-            
-            call_node_id = f"{script_path}_chunk_{i}_call_{j}"
-            node_props[call_node_id] = {
-                "type": "MethodCall",
-                "properties": {"code": call["full_text"], "order": j}
-            }
-            
-            triples.append({
-                "source": chunk_node_id, "source_type": "CodeChunk",
-                "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
-            })
-            
-            triples.append({
-                "source": call_node_id, "source_type": "MethodCall",
-                "label": "CALLS", "target": method_name, "target_type": "Method"
-            })
+        # 2. 現在のメソッド呼び出しの結果が変数に代入されているかチェック
+        if call["assigned_to"]:
+            # 変数名と現在の呼び出しIDをマッピングし、後続の呼び出しで参照できるようにする
+            variable_to_source_call_id[call["assigned_to"]] = call_node_id
+        # --- データフロー解析ここまで ---
 
-            if prev_call_node_id_in_chunk:
-                triples.append({
-                    "source": prev_call_node_id_in_chunk, "source_type": "MethodCall",
-                    "label": "NEXT", "target": call_node_id, "target_type": "MethodCall"
-                })
-            
-            prev_call_node_id_in_chunk = call_node_id
+        if prev_call_node_id:
+            triples.append({
+                "source": prev_call_node_id, "source_type": "MethodCall",
+                "label": "NEXT", "target": call_node_id, "target_type": "MethodCall"
+            })
+        
+        prev_call_node_id = call_node_id
 
     for method_name in all_methods_in_script:
         triples.append({
@@ -167,35 +164,70 @@ def _read_script_files() -> List[Tuple[str, str]]:
             
     return script_files
 
-def _extract_graph_from_specs_with_llm(api_spec_text: str, api_arg_text: str) -> Dict[str, List[Dict[str, Any]]]:
-    """LLMを使ってAPI仕様書(api.txt)とデータ型定義(api_arg.txt)からノードとリレーションを抽出する"""
+def _normalize_text(text: str) -> str:
+    text = text.replace("\ufeff", "")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = "\n".join(line.rstrip() for line in text.split("\n"))
+    text = text.replace("\t", " ")
+    text = re.sub(r"[ \u00A0\u3000]+", " ", text)
+    return text
+
+def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
+    descriptions = {}
+    current_type = None
+    current_desc_lines = []
+    
+    normalized_text = _normalize_text(text)
+    
+    for line in normalized_text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+            
+        if line.startswith("■"):
+            if current_type and current_desc_lines:
+                descriptions[current_type] = "\n".join(current_desc_lines).strip()
+            
+            current_type = line.replace("■", "").strip()
+            current_desc_lines = []
+        elif current_type:
+            current_desc_lines.append(line)
+            
+    if current_type and current_desc_lines:
+        descriptions[current_type] = "\n".join(current_desc_lines).strip()
+        
+    return descriptions
+
+
+def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str, Any]]]:
+    """LLMを使ってAPI仕様書の生テキストからノードとリレーションを抽出する"""
     prompt = f"""
     あなたはAPI仕様書を解析し、知識グラフを構築する専門家です。
-    以下のAPI仕様書とデータ型定義の両方を解析し、指定されたスキーマに従ってノードとリレーションを抽出し、JSON形式で出力してください。
+    以下のAPI仕様書テキストから、指定されたスキーマに従ってノードとリレーションを抽出し、JSON形式で出力してください。
 
     --- グラフのスキーマ定義 ---
     1.  **ノードの種類とプロパティ:**
         - `Object`: APIの操作対象となるオブジェクト。
-            - `id`: オブジェクト名 (例: "Part")
+            - `id`: オブジェクト名 (例: "Application")
             - `properties`: {{ "name": "オブジェクト名" }}
         - `Method`: オブジェクトに属するメソッド。
-            - `id`: メソッド名 (例: "CreateSketchPlane")
-            - `properties`: {{ "name": "メソッド名", "description": "メソッドの日本語説明 (返り値の行などから抽出)" }}
+            - `id`: メソッド名 (例: "CreateFrame")
+            - `properties`: {{ "name": "メソッド名", "description": "メソッドの日本語説明" }}
         - `Parameter`: メソッドが受け取る引数。
-            - `id`: `メソッド名_引数名` (例: "CreateSketchPlane_ElementName")
+            - `id`: `メソッド名_引数名` (例: "CreateFrame_FrameName")
             - `properties`: {{ "name": "引数名", "description": "引数の説明", "order": 引数の順番(0から) }}
         - `ReturnValue`: メソッドの戻り値。
-            - `id`: `メソッド名_ReturnValue` (例: "CreateSketchPlane_ReturnValue")
+            - `id`: `メソッド名_ReturnValue` (例: "CreateFrame_ReturnValue")
             - `properties`: {{ "description": "戻り値の説明" }}
         - `DataType`: 引数や戻り値の型。
             - `id`: データ型名 (例: "文字列", "ID", "数値")
-            - `properties`: {{ "name": "データ型名", "description": "データ型の詳細な説明" }}
+            - `properties`: {{ "name": "データ型名" }}
 
     2.  **リレーションの種類:**
         - `BELONGS_TO`: (Method) -> (Object)
         - `HAS_PARAMETER`: (Method) -> (Parameter)
         - `HAS_RETURNS`: (Method) -> (ReturnValue)
-        - `HAS_TYPE`: (Parameter) -> (DataType)
+        - `HAS_TYPE`: (Parameter) -> (DataType), (ReturnValue) -> (DataType)
 
     --- 出力形式 ---
     - 全体を1つのJSONオブジェクトで出力してください。
@@ -207,24 +239,16 @@ def _extract_graph_from_specs_with_llm(api_spec_text: str, api_arg_text: str) ->
     - リレーション: `{{"source": "ソースノードID", "target": "ターゲットノードID", "type": "リレーションの種類"}}`
 
     --- 指示 ---
-    - このAPIは、API仕様書とデータ型定義を参考に、APIを呼び出すスクリプトを生成するためのAPIです。
-    - 情報の漏れは許されません。
+    - テキスト全体を解析し、登場するすべてのオブジェクト、メソッド、引数、戻り値を抽出してください。
     - `id`はスキーマ定義に従って一意に命名してください。
-    - `API仕様書`から、オブジェクト、メソッド、引数、戻り値をすべて抽出してください。
-    - `■<オブジェクト名>オブジェクトのメソッド`という行から`Object`ノードを作成してください。
-    - メソッドの定義は `〇<メソッドの説明>\\n返り値:<返り値の説明>\\n<メソッド名>(...);` の形式です。
-    - メソッドの引数は `<引数名>, // <データ型>：<引数の説明>` の形式です。これを正確に解析してください。
-    - `返り値:`で始まる行から`ReturnValue`ノードを生成し、メソッドと関連付けてください。返り値の型は説明文から推測してください（例：「要素ID」なら「ID」型）。
-    - `データ型定義`を参考にして、`DataType`ノードをすべて生成してください。`description`プロパティには、`データ型定義`に書かれている説明を必ず含めてください。
-    - `Parameter`や`ReturnValue`から`DataType`への`HAS_TYPE`リレーションを必ず作成してください。
+    - DataTypeノードは、仕様書に登場するすべての型を重複なくリストアップしてください。もし型が明記されていない場合は、そのまま空文字列を指定してください。
     - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
+    - JSONオブジェクトにはコメントをいれないでください。
+    - 必ずJSONオブジェクトで出力してください。
+    - Parameterノードのdescriptionについて、`：`の後の文章を抽出し、要約や言い換えをせずにそのまま指定してください。
 
-    --- API仕様書 (api.txt) ---
-    {api_spec_text}
-    --- ここまで ---
-
-    --- データ型定義 (api_arg.txt) ---
-    {api_arg_text}
+    --- API仕様書テキスト ---
+    {raw_text}
     --- ここまで ---
 
     抽出後のJSON:
@@ -245,7 +269,8 @@ def _extract_graph_from_specs_with_llm(api_spec_text: str, api_arg_text: str) ->
 
 
 def extract_triples_from_specs(
-    graph_data: Dict[str, List[Dict[str, Any]]]
+    graph_data: Dict[str, List[Dict[str, Any]]], 
+    type_descriptions: Dict[str, str]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """LLMが抽出したグラフデータから、後続処理で利用するトリプル形式を生成する"""
     
@@ -263,6 +288,10 @@ def extract_triples_from_specs(
         node_type = node["type"]
         properties = node.get("properties", {})
         
+        # DataTypeノードへの説明追加は呼び出し元で行う
+        # if node_type == "DataType" and properties.get("name") in type_descriptions:
+        #     properties["description"] = type_descriptions[properties["name"]]
+
         node_props[node_id] = {"type": node_type, "properties": properties}
         node_type_map[node_id] = node_type
 
@@ -286,25 +315,43 @@ def extract_triples_from_specs(
     return triples, node_props
 
 
-def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, str]]:
+def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, Any]]:
+    """
+    スクリプトテキストを解析し、メソッド呼び出しの詳細情報を抽出する。
+    提案1の実装：メソッド呼び出しの結果が代入される変数名も取得する。
+    """
     tree = parser.parse(bytes(script_text, "utf8"))
     root_node = tree.root_node
     calls = []
     
     def find_calls(node):
+        # メソッド呼び出し (`call`ノード) を探す
         if node.type == 'call':
             function_node = node.child_by_field_name('function')
+            # obj.method() の形式 (`attribute`ノード) であることを確認
             if function_node and function_node.type == 'attribute':
                 obj_node = function_node.child_by_field_name('object')
                 method_node = function_node.child_by_field_name('attribute')
-                args_node = node.child_by_field_name('arguments')
-                if obj_node and method_node and args_node:
-                    calls.append({
+                
+                if obj_node and method_node:
+                    call_details = {
                         "object_name": obj_node.text.decode('utf8'),
                         "method_name": method_node.text.decode('utf8'),
-                        "arguments": args_node.text.decode('utf8'),
                         "full_text": node.text.decode('utf8'),
-                    })
+                        "node": node,  # データフロー解析のためにnodeオブジェクト自体を保持
+                        "assigned_to": None, # 結果が代入される変数名（デフォルトはNone）
+                    }
+                    
+                    # この呼び出しが代入文の一部かチェック (e.g., var = obj.method())
+                    parent = node.parent
+                    if parent and parent.type == 'assignment':
+                        left_node = parent.child_by_field_name('left')
+                        if left_node:
+                            call_details["assigned_to"] = left_node.text.decode('utf8')
+                            
+                    calls.append(call_details)
+
+        # 再帰的に子ノードを探索
         for child in node.children:
             find_calls(child)
 
@@ -393,8 +440,6 @@ def _build_and_load_chroma(graph_docs: List[GraphDocument]) -> None:
         # ノードのタイプに応じて、ベクトル化するテキストの内容を整形
         if node.type == "Method":
             content = f"APIメソッド\nメソッド名: {props.get('name', '')}\n説明: {props.get('description', '')}"
-        elif node.type == "CodeChunk":
-            content = f"コードチャンク\n目的: {props.get('purpose', '')}\nコード:\n```python\n{props.get('code', '')}\n```"
         elif node.type == "ScriptExample":
             content = f"スクリプト例\nファイル名: {props.get('name', '')}\n全文コード:\n```python\n{props.get('code', '')}\n```"
         else:
@@ -435,19 +480,37 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     構築したグラフドキュメントを返す。
     """
     # --- 1. API仕様書 (api.txt, api_arg.txt) の解析 ---
-    print("📄 API仕様書とデータ型定義を解析中...")
+    print("📄 API仕様書を解析中...")
     api_text = _read_api_text()
-    api_arg_text = _read_api_arg_text()
     
     # --- ここからが修正箇所 ---
-    # LLMでAPI仕様書とデータ型定義から直接グラフ構造(ノード/リレーション)を抽出
+    # LLMでAPI仕様書から直接グラフ構造(ノード/リレーション)を抽出
     print("🤖 LLMによるAPI仕様書からのグラフ抽出を実行中...")
-    graph_data_from_llm = _extract_graph_from_specs_with_llm(api_text, api_arg_text)
+    graph_data_from_llm = _extract_graph_from_specs_with_llm(api_text)
     
+    # データ型の説明テキストを読み込む
+    api_arg_text = _read_api_arg_text()
+    type_descriptions = _parse_data_type_descriptions(api_arg_text)
+    
+    # LLMが生成したデータにデータ型の説明を追加
+    for node in graph_data_from_llm.get("nodes", []):
+        if node.get("type") == "DataType" and node.get("properties", {}).get("name") in type_descriptions:
+            node["properties"]["description"] = type_descriptions[node["properties"]["name"]]
+
     # LLMの出力を後続処理用のトリプル形式に変換
-    spec_triples, spec_node_props = extract_triples_from_specs(graph_data_from_llm)
+    spec_triples, spec_node_props = extract_triples_from_specs(graph_data_from_llm, type_descriptions)
     # --- 修正箇所はここまで ---
     print(f"✔ API仕様書からトリプルを生成: {len(spec_triples)} 件")
+
+    # Neo4jに投入する前のAPI仕様書由来のデータをJSONファイルとして保存
+    with open("neo4j_data.json", "w", encoding="utf-8") as f:
+        json.dump(
+            graph_data_from_llm,
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
+    print("💾 API仕様書解析後のデータを 'neo4j_data.json' に保存しました。")
 
     # --- 2. スクリプト例 (data/*.py) の解析 ---
     print("\n🐍 スクリプト例 (data/*.py) を解析中...")
@@ -471,31 +534,6 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     print("\n🔗 データを統合してグラフを構築中...")
     gdocs = _triples_to_graph_documents(spec_triples + script_triples, {**spec_node_props, **script_node_props})
     
-    # Neo4jに投入する前のデータをJSONファイルとして保存
-    if gdocs:
-        graph_doc_to_save = gdocs[0] # 通常は1つの要素しか含まれない
-        nodes_to_save = [
-            {"id": node.id, "type": node.type, "properties": node.properties}
-            for node in graph_doc_to_save.nodes
-        ]
-        relationships_to_save = [
-            {
-                "source": rel.source.id,
-                "target": rel.target.id,
-                "type": rel.type,
-                "properties": rel.properties,
-            }
-            for rel in graph_doc_to_save.relationships
-        ]
-        with open("neo4j_data.json", "w", encoding="utf-8") as f:
-            json.dump(
-                {"nodes": nodes_to_save, "relationships": relationships_to_save},
-                f,
-                indent=2,
-                ensure_ascii=False,
-            )
-        print("💾 Neo4j投入前のデータを 'neo4j_data.json' に保存しました。")
-
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
         print(f"✔ グラフデータベースの再構築が完了しました: ノード={node_count}, リレーションシップ={rel_count}")

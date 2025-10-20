@@ -41,8 +41,8 @@ parser = Parser(PY_LANGUAGE)
 CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 OPENAI_API_KEY = config.OPENAI_API_KEY
 
-# モデル名を "gpt-4-turbo" など、利用可能なモデルに変更してください
-llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
+# 構造化データの抽出精度を高めるため、temperatureを0に設定
+llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY)
 
 def _split_script_into_chunks(script_content: str) -> List[str]:
     """
@@ -167,70 +167,35 @@ def _read_script_files() -> List[Tuple[str, str]]:
             
     return script_files
 
-def _normalize_text(text: str) -> str:
-    text = text.replace("\ufeff", "")
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = "\n".join(line.rstrip() for line in text.split("\n"))
-    text = text.replace("\t", " ")
-    text = re.sub(r"[ \u00A0\u3000]+", " ", text)
-    return text
-
-def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
-    descriptions = {}
-    current_type = None
-    current_desc_lines = []
-    
-    normalized_text = _normalize_text(text)
-    
-    for line in normalized_text.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-            
-        if line.startswith("■"):
-            if current_type and current_desc_lines:
-                descriptions[current_type] = "\n".join(current_desc_lines).strip()
-            
-            current_type = line.replace("■", "").strip()
-            current_desc_lines = []
-        elif current_type:
-            current_desc_lines.append(line)
-            
-    if current_type and current_desc_lines:
-        descriptions[current_type] = "\n".join(current_desc_lines).strip()
-        
-    return descriptions
-
-
-def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str, Any]]]:
-    """LLMを使ってAPI仕様書の生テキストからノードとリレーションを抽出する"""
+def _extract_graph_from_specs_with_llm(api_spec_text: str, api_arg_text: str) -> Dict[str, List[Dict[str, Any]]]:
+    """LLMを使ってAPI仕様書(api.txt)とデータ型定義(api_arg.txt)からノードとリレーションを抽出する"""
     prompt = f"""
     あなたはAPI仕様書を解析し、知識グラフを構築する専門家です。
-    以下のAPI仕様書テキストから、指定されたスキーマに従ってノードとリレーションを抽出し、JSON形式で出力してください。
+    以下のAPI仕様書とデータ型定義の両方を解析し、指定されたスキーマに従ってノードとリレーションを抽出し、JSON形式で出力してください。
 
     --- グラフのスキーマ定義 ---
     1.  **ノードの種類とプロパティ:**
         - `Object`: APIの操作対象となるオブジェクト。
-            - `id`: オブジェクト名 (例: "Application")
+            - `id`: オブジェクト名 (例: "Part")
             - `properties`: {{ "name": "オブジェクト名" }}
         - `Method`: オブジェクトに属するメソッド。
-            - `id`: メソッド名 (例: "CreateFrame")
-            - `properties`: {{ "name": "メソッド名", "description": "メソッドの日本語説明" }}
+            - `id`: メソッド名 (例: "CreateSketchPlane")
+            - `properties`: {{ "name": "メソッド名", "description": "メソッドの日本語説明 (返り値の行などから抽出)" }}
         - `Parameter`: メソッドが受け取る引数。
-            - `id`: `メソッド名_引数名` (例: "CreateFrame_FrameName")
+            - `id`: `メソッド名_引数名` (例: "CreateSketchPlane_ElementName")
             - `properties`: {{ "name": "引数名", "description": "引数の説明", "order": 引数の順番(0から) }}
         - `ReturnValue`: メソッドの戻り値。
-            - `id`: `メソッド名_ReturnValue` (例: "CreateFrame_ReturnValue")
+            - `id`: `メソッド名_ReturnValue` (例: "CreateSketchPlane_ReturnValue")
             - `properties`: {{ "description": "戻り値の説明" }}
         - `DataType`: 引数や戻り値の型。
             - `id`: データ型名 (例: "文字列", "ID", "数値")
-            - `properties`: {{ "name": "データ型名" }}
+            - `properties`: {{ "name": "データ型名", "description": "データ型の詳細な説明" }}
 
     2.  **リレーションの種類:**
         - `BELONGS_TO`: (Method) -> (Object)
         - `HAS_PARAMETER`: (Method) -> (Parameter)
         - `HAS_RETURNS`: (Method) -> (ReturnValue)
-        - `HAS_TYPE`: (Parameter) -> (DataType), (ReturnValue) -> (DataType)
+        - `HAS_TYPE`: (Parameter) -> (DataType)
 
     --- 出力形式 ---
     - 全体を1つのJSONオブジェクトで出力してください。
@@ -242,15 +207,24 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
     - リレーション: `{{"source": "ソースノードID", "target": "ターゲットノードID", "type": "リレーションの種類"}}`
 
     --- 指示 ---
-    "- テキスト全体を解析し、登場するすべてのオブジェクト、メソッド、引数、戻り値を抽出してください。
+    - このAPIは、API仕様書とデータ型定義を参考に、APIを呼び出すスクリプトを生成するためのAPIです。
+    - 情報の漏れは許されません。
     - `id`はスキーマ定義に従って一意に命名してください。
-    - DataTypeノードは、仕様書に登場するすべての型を重複なくリストアップしてください。もし型が明記されていない場合は、説明文から推測し、「文字列」「数値」「ID」「不明」などを適切に割り当ててください。特にIDを返しそうな場合は「ID」としてください。
+    - `API仕様書`から、オブジェクト、メソッド、引数、戻り値をすべて抽出してください。
+    - `■<オブジェクト名>オブジェクトのメソッド`という行から`Object`ノードを作成してください。
+    - メソッドの定義は `〇<メソッドの説明>\\n返り値:<返り値の説明>\\n<メソッド名>(...);` の形式です。
+    - メソッドの引数は `<引数名>, // <データ型>：<引数の説明>` の形式です。これを正確に解析してください。
+    - `返り値:`で始まる行から`ReturnValue`ノードを生成し、メソッドと関連付けてください。返り値の型は説明文から推測してください（例：「要素ID」なら「ID」型）。
+    - `データ型定義`を参考にして、`DataType`ノードをすべて生成してください。`description`プロパティには、`データ型定義`に書かれている説明を必ず含めてください。
+    - `Parameter`や`ReturnValue`から`DataType`への`HAS_TYPE`リレーションを必ず作成してください。
     - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
-    - JSONオブジェクトにはコメントをいれないでください。
-    - 必ずJSONオブジェクトで出力してください。
 
-    --- API仕様書テキスト ---
-    {raw_text}
+    --- API仕様書 (api.txt) ---
+    {api_spec_text}
+    --- ここまで ---
+
+    --- データ型定義 (api_arg.txt) ---
+    {api_arg_text}
     --- ここまで ---
 
     抽出後のJSON:
@@ -271,8 +245,7 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
 
 
 def extract_triples_from_specs(
-    graph_data: Dict[str, List[Dict[str, Any]]], 
-    type_descriptions: Dict[str, str]
+    graph_data: Dict[str, List[Dict[str, Any]]]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """LLMが抽出したグラフデータから、後続処理で利用するトリプル形式を生成する"""
     
@@ -290,10 +263,6 @@ def extract_triples_from_specs(
         node_type = node["type"]
         properties = node.get("properties", {})
         
-        # DataTypeノードにapi_arg.txtから読み込んだ説明を追加
-        if node_type == "DataType" and properties.get("name") in type_descriptions:
-            properties["description"] = type_descriptions[properties["name"]]
-
         node_props[node_id] = {"type": node_type, "properties": properties}
         node_type_map[node_id] = node_type
 
@@ -466,45 +435,19 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     構築したグラフドキュメントを返す。
     """
     # --- 1. API仕様書 (api.txt, api_arg.txt) の解析 ---
-    print("📄 API仕様書を解析中...")
+    print("📄 API仕様書とデータ型定義を解析中...")
     api_text = _read_api_text()
+    api_arg_text = _read_api_arg_text()
     
     # --- ここからが修正箇所 ---
-    # LLMでAPI仕様書から直接グラフ構造(ノード/リレーション)を抽出
+    # LLMでAPI仕様書とデータ型定義から直接グラフ構造(ノード/リレーション)を抽出
     print("🤖 LLMによるAPI仕様書からのグラフ抽出を実行中...")
-    graph_data_from_llm = _extract_graph_from_specs_with_llm(api_text)
-    
-    # データ型の説明テキストを読み込む
-    api_arg_text = _read_api_arg_text()
-    type_descriptions = _parse_data_type_descriptions(api_arg_text)
+    graph_data_from_llm = _extract_graph_from_specs_with_llm(api_text, api_arg_text)
     
     # LLMの出力を後続処理用のトリプル形式に変換
-    spec_triples, spec_node_props = extract_triples_from_specs(graph_data_from_llm, type_descriptions)
+    spec_triples, spec_node_props = extract_triples_from_specs(graph_data_from_llm)
     # --- 修正箇所はここまで ---
     print(f"✔ API仕様書からトリプルを生成: {len(spec_triples)} 件")
-
-    # API仕様から生成したデータをJSONファイルとして保存
-    nodes_to_save = [
-        {"id": node_id, "type": meta["type"], "properties": meta["properties"]}
-        for node_id, meta in spec_node_props.items()
-    ]
-    relationships_to_save = [
-        {
-            "source": t["source"],
-            "target": t["target"],
-            "type": t["label"],
-            "properties": t.get("properties", {}),
-        }
-        for t in spec_triples
-    ]
-    with open("neo4j_data.json", "w", encoding="utf-8") as f:
-        json.dump(
-            {"nodes": nodes_to_save, "relationships": relationships_to_save},
-            f,
-            indent=2,
-            ensure_ascii=False,
-        )
-    print("💾 API仕様書から抽出したデータを 'neo4j_data.json' に保存しました。")
 
     # --- 2. スクリプト例 (data/*.py) の解析 ---
     print("\n🐍 スクリプト例 (data/*.py) を解析中...")
@@ -528,6 +471,31 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     print("\n🔗 データを統合してグラフを構築中...")
     gdocs = _triples_to_graph_documents(spec_triples + script_triples, {**spec_node_props, **script_node_props})
     
+    # Neo4jに投入する前のデータをJSONファイルとして保存
+    if gdocs:
+        graph_doc_to_save = gdocs[0] # 通常は1つの要素しか含まれない
+        nodes_to_save = [
+            {"id": node.id, "type": node.type, "properties": node.properties}
+            for node in graph_doc_to_save.nodes
+        ]
+        relationships_to_save = [
+            {
+                "source": rel.source.id,
+                "target": rel.target.id,
+                "type": rel.type,
+                "properties": rel.properties,
+            }
+            for rel in graph_doc_to_save.relationships
+        ]
+        with open("neo4j_data.json", "w", encoding="utf-8") as f:
+            json.dump(
+                {"nodes": nodes_to_save, "relationships": relationships_to_save},
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
+        print("💾 Neo4j投入前のデータを 'neo4j_data.json' に保存しました。")
+
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
         print(f"✔ グラフデータベースの再構築が完了しました: ノード={node_count}, リレーションシップ={rel_count}")
