@@ -42,7 +42,7 @@ CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 OPENAI_API_KEY = config.OPENAI_API_KEY
 
 # 構造化データの抽出精度を高めるため、temperatureを0に設定
-llm = ChatOpenAI(temperature=1, model_name="gpt-5", openai_api_key=OPENAI_API_KEY)
+llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY)
 
 def _split_script_into_chunks(script_content: str) -> List[str]:
     """

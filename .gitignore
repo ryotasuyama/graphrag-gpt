@@ -6,3 +6,6 @@ chroma/
 *.md
 *.xml
 data_copy/
+script/
+config.py
+ide.doc.parser.py

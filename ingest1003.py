@@ -483,6 +483,29 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     # --- 修正箇所はここまで ---
     print(f"✔ API仕様書からトリプルを生成: {len(spec_triples)} 件")
 
+    # API仕様から生成したデータをJSONファイルとして保存
+    nodes_to_save = [
+        {"id": node_id, "type": meta["type"], "properties": meta["properties"]}
+        for node_id, meta in spec_node_props.items()
+    ]
+    relationships_to_save = [
+        {
+            "source": t["source"],
+            "target": t["target"],
+            "type": t["label"],
+            "properties": t.get("properties", {}),
+        }
+        for t in spec_triples
+    ]
+    with open("neo4j_data.json", "w", encoding="utf-8") as f:
+        json.dump(
+            {"nodes": nodes_to_save, "relationships": relationships_to_save},
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
+    print("💾 API仕様書から抽出したデータを 'neo4j_data.json' に保存しました。")
+
     # --- 2. スクリプト例 (data/*.py) の解析 ---
     print("\n🐍 スクリプト例 (data/*.py) を解析中...")
     script_files = _read_script_files()
@@ -505,31 +528,6 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     print("\n🔗 データを統合してグラフを構築中...")
     gdocs = _triples_to_graph_documents(spec_triples + script_triples, {**spec_node_props, **script_node_props})
     
-    # Neo4jに投入する前のデータをJSONファイルとして保存
-    if gdocs:
-        graph_doc_to_save = gdocs[0] # 通常は1つの要素しか含まれない
-        nodes_to_save = [
-            {"id": node.id, "type": node.type, "properties": node.properties}
-            for node in graph_doc_to_save.nodes
-        ]
-        relationships_to_save = [
-            {
-                "source": rel.source.id,
-                "target": rel.target.id,
-                "type": rel.type,
-                "properties": rel.properties,
-            }
-            for rel in graph_doc_to_save.relationships
-        ]
-        with open("neo4j_data.json", "w", encoding="utf-8") as f:
-            json.dump(
-                {"nodes": nodes_to_save, "relationships": relationships_to_save},
-                f,
-                indent=2,
-                ensure_ascii=False,
-            )
-        print("💾 Neo4j投入前のデータを 'neo4j_data.json' に保存しました。")
-
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
         print(f"✔ グラフデータベースの再構築が完了しました: ノード={node_count}, リレーションシップ={rel_count}")
