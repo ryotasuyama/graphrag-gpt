@@ -137,9 +137,9 @@
    Target1  // 要素(配列)：スイープするターゲット要素１　(点、線、シート、ソリッド、あるいはソリッドフェイス)
    Target2  // 要素(配列)：スイープ方向が２方向の場合に使用。スイープするターゲット要素２
    Profile // 要素(配列)：押し出しのプロファイル要素(スケッチ、線、シート)
-   ProfileNormal // 方向：プロファイルの平面法線方向。(プロファイルが３Dの直線の場合にその平面法線として指定。) 
+   ProfileNormal // 方向：プロファイルの平面法線方向。(プロファイルが3Dの直線の場合にその平面法線として指定。) 
    ProfileOffset // 長さ：プロファイル位置のオフセット距離
-   DirectionType  // スイープ方向： 
+   DirectionType // スイープ方向：
    DirectionParameter1 // 長さ： スイープする距離１(SweepTarget1を指定している場合は使用しない)
    DirectionParameter2 // 長さ： スイープ方向が２方向の場合に使用。スイープする距離２(SweepTarget２を指定している場合は使用しない)
    SweepDirection // 方向：スイープする方向を設定する場合に使用。指定しない場合はプロファイルの法線方向
@@ -201,7 +201,7 @@
   返り値:コピーされた要素ID配列
   MirrorCopy(
         SrcElements,// 要素(配列)：コピーする要素
-        [in] BSTR plane,
+        [in] BSTR plane,//
         ReferMethod);  // 関連設定: 要素の関連づけ方法の指定
 
 〇空のソリッド要素を作成する
@@ -243,7 +243,7 @@
 　　
 〇ブラケット要素のパラメータオブジェクト
    属性
-        DefinitionType //　整数: ブラケットの作成方法指定　0: 面指定　1:基準要素指定
+        DefinitionType //　整数: ブラケットの作成方法指定 (0: 面指定, 1: 基準要素指定 など)
         BracketName // 文字列：作成するブラケットソリッド要素名称(空文字可)
         ElementGroup // 要素グループ：作成するソリッド要素を要素グループに入れる場合は要素グループを指定(空文字可)
         MaterialName // 材料：作成するソリッド要素の材質名称(空文字可)
@@ -320,8 +320,7 @@
 
 〇条材要素のパラメータオブジェクト
    属性
-        DefinitionType //　整数: の作成方法指定　0:取付線指定 　1:基準面指定  2:取付線＋指定方向線  3: 元要素指定
-　　　　　　　　　　　 // 4:ホール指定  5:２点  6:ロンジ間  7:基準線指定  8:基準点と方向  9:基準要素
+        DefinitionType //　整数: の作成方法指定　0:取付線指定 　1:基準面指定  2:取付線＋指定方向線  3: 元要素指定　4:ホール指定  5:２点  6:ロンジ間  7:基準線指定  8:基準点と方向  9:基準要素
         ProfileName // 文字列：作成する条材ソリッド要素名称(空文字可)
         ElementGroup // 要素グループ：作成するソリッド要素を要素グループに入れる場合は要素グループを指定(空文字可)
         MaterialName // 材料：作成するソリッド要素の材質名称(空文字可)
@@ -423,7 +422,7 @@ BodyDivideByPlanes(
     pDriveFeatureName, // 文字列：作成する分割フィーチャー要素名称(空文字可)
     TargetBody, // 要素: 分割対象のボディ
     plane, // 要素: 分割をする平面
-    PlaneDeltaCopy,  分割をする平面をコピーする際のオフセット距離
+    PlaneDeltaCopy, //分割をする平面をコピーする際のオフセット距離
     nPlaneCopy, // 整数: 分割をする平面を複数コピーして分割をする(通常は1)
     pAlignmentDirection, // 方向： 分割されたボディ要素の順番を整列させるのに使用する方向
     WCS, // 要素： 要素分割に使用する座標系を指定。通常は指定しない
@@ -536,7 +535,7 @@ CreateRotationalSweepParam()
    ThickenessOffset // 長さ： 厚みづけのオフセット距離
    Profile // 要素(配列)：回転のプロファイル要素(スケッチ、線)
    Axis // 要素：回転の回転軸要素(線)
-   DirectionType  //スイープ方向 ：
+   DirectionType //スイープ方向：
    Angle // 角度：回転角度
    Angle2 // 角度：スイープ方向が２方向だった場合の２方向側の回転角度
 
@@ -546,13 +545,13 @@ CreateRotationalSweepParam()
 CreateRotationalSweep(
         TargetSolidName, // 要素：回転フィーチャーを作成する対象のソリッドを指定
         OperationType,   // オペレーションタイプ: ソリッドオペレーションのタイプを指定する
-        pParam, // 回転パラメータオブジェクト
+        pParam, // 回転パラメータオブジェクト：
         bUpdate 　);　// bool：更新フラグ(未実装、使用しない)
 
 〇プロファイル要素を回転してシート要素を作成
   返り値:作成されたシート要素の要素ID    
 CreateRotationalSweepSheet(
-        ParamObj, // 回転パラメータオブジェクト
+        ParamObj, // 回転パラメータオブジェクト：
         bUpdate);　// bool：更新フラグ(未実装、使用しない)
 
 〇3Dの直線線要素を作成
@@ -576,7 +575,7 @@ CreateArc(
 CreateEllipse(
         CenterPoint,// 点(3D)：中心点
         Normal,     // 方向：軸方向
-        MajorDir,   // 方向：主軸方向(パラメータ０の位置方向
+        MajorDir,   // 方向：主軸方向(パラメータ０の位置方向）
         MajorRadius,   // 長さ：主軸半径
         MinorRadius,   // 長さ：副軸半径
         bClose,     // bool： Trueの時は閉じたを作成する
@@ -607,10 +606,10 @@ CreateNURBSCurve(
    Profile // 要素(配列)：ロフトのプロファイル要素(スケッチ、線)
    Guide // 要素(配列)：ロフトのガイド要素(スケッチ、線)
    Alignment　 // 要素(配列)：ロフトのプロファイル要素の整列要素(スケッチ、線)
-   StartTangentType　// 整数：始点側の接続要素指定(0:指定なし 1:平面に接続 2:面群にG1連続で接続 3:面群にG2連続で接続
+   StartTangentType　// 整数：始点側の接続要素指定（0:指定なし 1:平面に接続 2:面群にG1連続で接続 3:面群にG2連続で接続）
    StartTangentElement　// 要素(配列)：始点側の接続要素
    StartTangentScale　// 浮動小数点:　始点側の接続スケール
-   EndTangentType　// 整数：終点側の接続要素指定(0:指定なし 1:平面に接続 2:面群にG1連続で接続 3:面群にG2連続で接続
+   EndTangentType　// 整数：終点側の接続要素指定（0:指定なし 1:平面に接続 2:面群にG1連続で接続 3:面群にG2連続で接続）
    EndTangentElement　// 要素(配列)：終点側の接続要素
    EndTangentScale　// 浮動小数点:　終点側の接続スケール
    Close　　　　　　// bool：閉じたロフト形状を作成するときはTrue
@@ -682,7 +681,7 @@ CreateFacePlateParam()
    End2TypeParams // 形状パラメータ: 端部２、フェイスプレートの端部タイプのパラメータ
    BaseFaces　　　// 要素(配列)： 面指定で作成する場合の基準面(フェイス)
    AttachFaces　　// 要素(配列)： 面指定、取付線指定で作成する場合の取付面(フェイス)
-   OrignalFacePlate　// 要素： 元要素指定で作成する場合の元となるフェイスプレート要素
+   OriginalFacePlate　// 要素： 元要素指定で作成する場合の元となるフェイスプレート要素
    Bracket　　　　// 要素： ブラケット指定で作成する場合のブラケット要素
    BaseCurves　　// 要素(配列)： 取付線指定で作成する場合の取付線(カーブ、エッジ)
    ProjectionDir // 方向：取付線指定で作成する場合の取付線の投影方向

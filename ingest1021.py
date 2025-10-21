@@ -44,29 +44,7 @@ OPENAI_API_KEY = config.OPENAI_API_KEY
 # モデル名を "gpt-4-turbo" など、利用可能なモデルに変更してください
 llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
 
-def _split_script_into_chunks(script_content: str) -> List[str]:
-    """
-    スクリプトを連続する2つ以上の改行で分割し、コードチャンクのリストを返す。
-    """
-    chunks = re.split(r'\n\s*\n', script_content.strip())
-    return [chunk.strip() for chunk in chunks if chunk.strip()]
 
-def _get_chunk_purpose(chunk_content: str) -> str:
-    """LLMを使ってコードチャンクの目的を生成する"""
-    prompt = f"""
-    以下のPythonコードの断片が、APIを呼び出して何を行おうとしているのか、その目的を簡潔な日本語の一文で説明してください。
-
-    ```python
-    {chunk_content}
-    ```
-    このコードの目的:
-    """
-    try:
-        response = llm.invoke(prompt)
-        return response.content.strip()
-    except Exception as e:
-        print(f"      ⚠ コードチャンクの目的生成中にエラー: {e}")
-        return "目的の生成に失敗しました。"
 
 def extract_triples_from_script(
     script_path: str, script_text: str
@@ -84,92 +62,73 @@ def extract_triples_from_script(
         }
     }
 
-    chunks = _split_script_into_chunks(script_text)
-    
     all_methods_in_script = set()
 
-    for i, chunk_text in enumerate(chunks):
-        print(f"      - チャンク {i+1}/{len(chunks)} の目的を抽出中...")
-        purpose = _get_chunk_purpose(chunk_text)
+    # データフローを追跡するため、スクリプト内で変数がどのメソッド呼び出しから生成されたかを記録する
+    # { "変数名": "生成元のMethodCallノードID" }
+    variable_to_source_call_id: Dict[str, str] = {}
 
-        chunk_node_id = f"{script_path}_chunk_{i}"
-        node_props[chunk_node_id] = {
-            "type": "CodeChunk",
-            "properties": {"purpose": purpose, "code": chunk_text, "order": i}
+    method_calls_in_script = _extract_method_calls_from_script(script_text)
+    prev_call_node_id = None
+
+    for i, call in enumerate(method_calls_in_script):
+        method_name = call["method_name"]
+        all_methods_in_script.add(method_name)
+        
+        call_node_id = f"{script_path}_call_{i}"
+        node_props[call_node_id] = {
+            "type": "MethodCall",
+            "properties": {"code": call["full_text"], "order": i}
         }
+        
+        # ScriptExampleノードに直接CONTAINSリレーションで関連付ける
         triples.append({
             "source": script_node_id, "source_type": "ScriptExample",
-            "label": "HAS_CHUNK", "target": chunk_node_id, "target_type": "CodeChunk"
+            "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
+        })
+        
+        triples.append({
+            "source": call_node_id, "source_type": "MethodCall",
+            "label": "CALLS", "target": method_name, "target_type": "Method"
         })
 
-        # ▼▼▼ 提案1の実装 ▼▼▼
-        # データフローを追跡するため、チャンク内で変数がどのメソッド呼び出しから生成されたかを記録する
-        # { "変数名": "生成元のMethodCallノードID" }
-        variable_to_source_call_id: Dict[str, str] = {}
-        # ▲▲▲ 提案1の実装 ▲▲▲
-
-        method_calls_in_chunk = _extract_method_calls_from_script(chunk_text)
-        prev_call_node_id_in_chunk = None
-
-        for j, call in enumerate(method_calls_in_chunk):
-            method_name = call["method_name"]
-            all_methods_in_script.add(method_name)
+        # --- データフロー解析 ---
+        # 1. 現在のメソッド呼び出しの引数を解析する
+        arguments_node = call["node"].child_by_field_name("arguments")
+        if arguments_node:
+            # 引数ノード内のすべての変数名（identifier）を再帰的に探索
+            arg_vars = []
+            def find_identifiers(n):
+                if n.type == 'identifier':
+                    arg_vars.append(n.text.decode('utf8'))
+                for child in n.children:
+                    find_identifiers(child)
+            find_identifiers(arguments_node)
             
-            call_node_id = f"{script_path}_chunk_{i}_call_{j}"
-            node_props[call_node_id] = {
-                "type": "MethodCall",
-                "properties": {"code": call["full_text"], "order": j}
-            }
-            
+            # 見つかった変数について、それが以前のメソッド呼び出しの結果であるかチェック
+            for var_name in set(arg_vars): # setで重複したリレーションを防止
+                if var_name in variable_to_source_call_id:
+                    source_call_node_id = variable_to_source_call_id[var_name]
+                    # データフローを示す PASSES_RESULT_TO リレーションを追加
+                    triples.append({
+                        "source": source_call_node_id, "source_type": "MethodCall",
+                        "label": "PASSES_RESULT_TO", 
+                        "target": call_node_id, "target_type": "MethodCall"
+                    })
+
+        # 2. 現在のメソッド呼び出しの結果が変数に代入されているかチェック
+        if call["assigned_to"]:
+            # 変数名と現在の呼び出しIDをマッピングし、後続の呼び出しで参照できるようにする
+            variable_to_source_call_id[call["assigned_to"]] = call_node_id
+        # --- データフロー解析ここまで ---
+
+        if prev_call_node_id:
             triples.append({
-                "source": chunk_node_id, "source_type": "CodeChunk",
-                "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
+                "source": prev_call_node_id, "source_type": "MethodCall",
+                "label": "NEXT", "target": call_node_id, "target_type": "MethodCall"
             })
-            
-            triples.append({
-                "source": call_node_id, "source_type": "MethodCall",
-                "label": "CALLS", "target": method_name, "target_type": "Method"
-            })
-
-            # ▼▼▼ 提案1の実装 ▼▼▼
-            # --- データフロー解析 ---
-            # 1. 現在のメソッド呼び出しの引数を解析する
-            arguments_node = call["node"].child_by_field_name("arguments")
-            if arguments_node:
-                # 引数ノード内のすべての変数名（identifier）を再帰的に探索
-                arg_vars = []
-                def find_identifiers(n):
-                    if n.type == 'identifier':
-                        arg_vars.append(n.text.decode('utf8'))
-                    for child in n.children:
-                        find_identifiers(child)
-                find_identifiers(arguments_node)
-                
-                # 見つかった変数について、それが以前のメソッド呼び出しの結果であるかチェック
-                for var_name in set(arg_vars): # setで重複したリレーションを防止
-                    if var_name in variable_to_source_call_id:
-                        source_call_node_id = variable_to_source_call_id[var_name]
-                        # データフローを示す PASSES_RESULT_TO リレーションを追加
-                        triples.append({
-                            "source": source_call_node_id, "source_type": "MethodCall",
-                            "label": "PASSES_RESULT_TO", 
-                            "target": call_node_id, "target_type": "MethodCall"
-                        })
-
-            # 2. 現在のメソッド呼び出しの結果が変数に代入されているかチェック
-            if call["assigned_to"]:
-                # 変数名と現在の呼び出しIDをマッピングし、後続の呼び出しで参照できるようにする
-                variable_to_source_call_id[call["assigned_to"]] = call_node_id
-            # --- データフロー解析ここまで ---
-            # ▲▲▲ 提案1の実装 ▲▲▲
-
-            if prev_call_node_id_in_chunk:
-                triples.append({
-                    "source": prev_call_node_id_in_chunk, "source_type": "MethodCall",
-                    "label": "NEXT", "target": call_node_id, "target_type": "MethodCall"
-                })
-            
-            prev_call_node_id_in_chunk = call_node_id
+        
+        prev_call_node_id = call_node_id
 
     for method_name in all_methods_in_script:
         triples.append({
@@ -248,27 +207,35 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
 
     --- グラフのスキーマ定義 ---
     1.  **ノードの種類とプロパティ:**
-        - `Object`: APIの操作対象となるオブジェクト。
-            - `id`: オブジェクト名 (例: "Application")
+        - `Object`: APIの操作対象となるオブジェクト。 (例: "Part")
+            - `id`: オブジェクト名 (例: "Part")
             - `properties`: {{ "name": "オブジェクト名" }}
         - `Method`: オブジェクトに属するメソッド。
-            - `id`: メソッド名 (例: "CreateFrame")
+            - `id`: メソッド名 (例: "CreateVariable")
             - `properties`: {{ "name": "メソッド名", "description": "メソッドの日本語説明" }}
         - `Parameter`: メソッドが受け取る引数。
-            - `id`: `メソッド名_引数名` (例: "CreateFrame_FrameName")
+            - `id`: `メソッド名_引数名` (例: "CreateVariable_VariableName")
             - `properties`: {{ "name": "引数名", "description": "引数の説明", "order": 引数の順番(0から) }}
         - `ReturnValue`: メソッドの戻り値。
-            - `id`: `メソッド名_ReturnValue` (例: "CreateFrame_ReturnValue")
+            - `id`: `メソッド名_ReturnValue` (例: "CreateVariable_ReturnValue")
             - `properties`: {{ "description": "戻り値の説明" }}
-        - `DataType`: 引数や戻り値の型。
-            - `id`: データ型名 (例: "文字列", "ID", "数値")
+        - `DataType`: 引数や戻り値、属性の型。
+            - `id`: データ型名 (例: "文字列", "長さ", "bool", "ブラケット要素のパラメータオブジェクト", "整数")
             - `properties`: {{ "name": "データ型名" }}
+        - `Attribute`: パラメータオブジェクトが持つ属性。
+            - `id`: `データ型名_属性名` (例: "ブラケット要素のパラメータオブジェクト_DefinitionType")
+### ▼▼▼ 変更箇所 ▼▼▼
+            - `properties`: {{ "name": "属性名", "description": "属性の日本語説明 (型情報を除いたもの)" }}
+### ▲▲▲ 変更箇所 ▲▲▲
 
     2.  **リレーションの種類:**
         - `BELONGS_TO`: (Method) -> (Object)
         - `HAS_PARAMETER`: (Method) -> (Parameter)
         - `HAS_RETURNS`: (Method) -> (ReturnValue)
-        - `HAS_TYPE`: (Parameter) -> (DataType), (ReturnValue) -> (DataType)
+### ▼▼▼ 変更箇所 ▼▼▼
+        - `HAS_TYPE`: (Parameter) -> (DataType), (ReturnValue) -> (DataType), (Attribute) -> (DataType)
+### ▲▲▲ 変更箇所 ▲▲▲
+        - `HAS_ATTRIBUTE`: (DataType) -> (Attribute)
 
     --- 出力形式 ---
     - 全体を1つのJSONオブジェクトで出力してください。
@@ -281,12 +248,21 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
 
     --- 指示 ---
     - テキスト全体を解析し、登場するすべてのオブジェクト、メソッド、引数、戻り値を抽出してください。
+    - 「■Partオブジェクトのメソッド」 のように定義されている場合、"Part" を `Object` ノードとし、後続の `Method` ノードは "Part" に `BELONGS_TO` させてください。
     - `id`はスキーマ定義に従って一意に命名してください。
     - DataTypeノードは、仕様書に登場するすべての型を重複なくリストアップしてください。もし型が明記されていない場合は、そのまま空文字列を指定してください。
     - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
     - JSONオブジェクトにはコメントをいれないでください。
     - 必ずJSONオブジェクトで出力してください。
     - Parameterノードのdescriptionについて、`：`の後の文章を抽出し、要約や言い換えをせずにそのまま指定してください。
+    - `〇〇パラメータオブジェクト` というセクションを見つけたら、その名前 (例: "ブラケット要素のパラメータオブジェクト") で `DataType` ノードを抽出してください。
+    - 上記 `DataType` ノードに続く `属性` リスト内の各項目 (例: `DefinitionType //s整数: ...`) は、`Attribute` ノードとして抽出してください。
+    - `Attribute` ノードの `id` は `DataType名_属性名` (例: "ブラケット要素のパラメータオブジェクト_DefinitionType") としてください。
+    - `Attribute` ノードの `description` には、`//` の後の説明文から型情報 (例: `整数:`, `文字列：`) を *除いた* 説明文 (例: "ブラケットの作成方法指定 0: 面指定 1:基準要素指定") を格納してください。
+    - `//` の後の説明文に `型名:` (例: `整数:`) が含まれている場合、その `型名` (例: "整数") を `id` とする `DataType` ノードを作成（または参照）し、`Attribute` ノードからその `DataType` ノードへ `HAS_TYPE` リレーションを張ってください。
+    - 説明文に `型名:` が含まれていない場合 (例: `BasePlane //面指定の場合の基準平面`)、`description` には説明文全体 (例: "面指定の場合の基準平面") を格納し、`HAS_TYPE` リレーションは作成しないでください。
+    - 各 `Attribute` ノードから、それが属する `DataType` ノード (パラメータオブジェクト) へ `HAS_ATTRIBUTE` リレーションを張ってください。 (このリレーションは `HAS_TYPE` とは別です)
+    - `Create[... ]Param` (例: `CreateBracketParam`) のようなメソッドは、対応する `〇〇パラメータオブジェクト` (例: "ブラケット要素のパラメータオブジェクト") を `DataType` とする `ReturnValue` を持つ `Method` ノードとして抽出してください。
 
     --- API仕様書テキスト ---
     {raw_text}
@@ -307,7 +283,6 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
     except Exception as e:
         print(f"      ⚠ LLMによるグラフ抽出またはJSONパース中にエラー: {e}")
         return {"nodes": [], "relationships": []}
-
 
 def extract_triples_from_specs(
     graph_data: Dict[str, List[Dict[str, Any]]], 
@@ -354,6 +329,7 @@ def extract_triples_from_specs(
         })
         
     return triples, node_props
+
 
 
 def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, Any]]:
@@ -481,8 +457,6 @@ def _build_and_load_chroma(graph_docs: List[GraphDocument]) -> None:
         # ノードのタイプに応じて、ベクトル化するテキストの内容を整形
         if node.type == "Method":
             content = f"APIメソッド\nメソッド名: {props.get('name', '')}\n説明: {props.get('description', '')}"
-        elif node.type == "CodeChunk":
-            content = f"コードチャンク\n目的: {props.get('purpose', '')}\nコード:\n```python\n{props.get('code', '')}\n```"
         elif node.type == "ScriptExample":
             content = f"スクリプト例\nファイル名: {props.get('name', '')}\n全文コード:\n```python\n{props.get('code', '')}\n```"
         else:
