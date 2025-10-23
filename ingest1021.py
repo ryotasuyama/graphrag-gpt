@@ -45,7 +45,6 @@ OPENAI_API_KEY = config.OPENAI_API_KEY
 llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
 
 
-
 def extract_triples_from_script(
     script_path: str, script_text: str
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
@@ -224,51 +223,47 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
             - `properties`: {{ "name": "データ型名" }}
         - `Attribute`: パラメータオブジェクトが持つ属性。
             - `id`: `データ型名_属性名` (例: "ブラケット要素のパラメータオブジェクト_DefinitionType")
-### ▼▼▼ 変更箇所 ▼▼▼
-            - `properties`: {{ "name": "属性名", "description": "属性の日本語説明 (型情報を除いたもの)" }}
-### ▲▲▲ 変更箇所 ▲▲▲
+                    - `properties`: {{ "name": "属性名", "description": "属性の日本語説明 (型情報を除いたもの)" }}
 
-    2.  **リレーションの種類:**
-        - `BELONGS_TO`: (Method) -> (Object)
-        - `HAS_PARAMETER`: (Method) -> (Parameter)
-        - `HAS_RETURNS`: (Method) -> (ReturnValue)
-### ▼▼▼ 変更箇所 ▼▼▼
-        - `HAS_TYPE`: (Parameter) -> (DataType), (ReturnValue) -> (DataType), (Attribute) -> (DataType)
-### ▲▲▲ 変更箇所 ▲▲▲
-        - `HAS_ATTRIBUTE`: (DataType) -> (Attribute)
+            2.  **リレーションの種類:**
+                - `BELONGS_TO`: (Method) -> (Object)
+                - `HAS_PARAMETER`: (Method) -> (Parameter)
+                - `HAS_RETURNS`: (Method) -> (ReturnValue)
+                - `HAS_TYPE`: (Parameter) -> (DataType), (ReturnValue) -> (DataType), (Attribute) -> (DataType)
+                - `HAS_ATTRIBUTE`: (DataType) -> (Attribute)
 
-    --- 出力形式 ---
-    - 全体を1つのJSONオブジェクトで出力してください。
-    - `nodes` と `relationships` の2つのキーを持ちます。
-    - `nodes` の値はノードオブジェクトのリストです。
-    - `relationships` の値はリレーションオブジェクトのリストです。
-    - 各オブジェクトの形式は以下の通りです。
-    - ノード: `{{"id": "一意のID", "type": "ノードの種類", "properties": {{...}} }}`
-    - リレーション: `{{"source": "ソースノードID", "target": "ターゲットノードID", "type": "リレーションの種類"}}`
+        --- 出力形式 ---
+        - 全体を1つのJSONオブジェクトで出力してください。
+        - `nodes` と `relationships` の2つのキーを持ちます。
+        - `nodes` の値はノードオブジェクトのリストです。
+        - `relationships` の値はリレーションオブジェクトのリストです。
+        - 各オブジェクトの形式は以下の通りです。
+        - ノード: `{{"id": "一意のID", "type": "ノードの種類", "properties": {{...}} }}`
+        - リレーション: `{{"source": "ソースノードID", "target": "ターゲットノードID", "type": "リレーションの種類"}}`
 
-    --- 指示 ---
-    - テキスト全体を解析し、登場するすべてのオブジェクト、メソッド、引数、戻り値を抽出してください。
-    - 「■Partオブジェクトのメソッド」 のように定義されている場合、"Part" を `Object` ノードとし、後続の `Method` ノードは "Part" に `BELONGS_TO` させてください。
-    - `id`はスキーマ定義に従って一意に命名してください。
-    - DataTypeノードは、仕様書に登場するすべての型を重複なくリストアップしてください。もし型が明記されていない場合は、そのまま空文字列を指定してください。
-    - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
-    - JSONオブジェクトにはコメントをいれないでください。
-    - 必ずJSONオブジェクトで出力してください。
-    - Parameterノードのdescriptionについて、`：`の後の文章を抽出し、要約や言い換えをせずにそのまま指定してください。
-    - `〇〇パラメータオブジェクト` というセクションを見つけたら、その名前 (例: "ブラケット要素のパラメータオブジェクト") で `DataType` ノードを抽出してください。
-    - 上記 `DataType` ノードに続く `属性` リスト内の各項目 (例: `DefinitionType //s整数: ...`) は、`Attribute` ノードとして抽出してください。
-    - `Attribute` ノードの `id` は `DataType名_属性名` (例: "ブラケット要素のパラメータオブジェクト_DefinitionType") としてください。
-    - `Attribute` ノードの `description` には、`//` の後の説明文から型情報 (例: `整数:`, `文字列：`) を *除いた* 説明文 (例: "ブラケットの作成方法指定 0: 面指定 1:基準要素指定") を格納してください。
-    - `//` の後の説明文に `型名:` (例: `整数:`) が含まれている場合、その `型名` (例: "整数") を `id` とする `DataType` ノードを作成（または参照）し、`Attribute` ノードからその `DataType` ノードへ `HAS_TYPE` リレーションを張ってください。
-    - 説明文に `型名:` が含まれていない場合 (例: `BasePlane //面指定の場合の基準平面`)、`description` には説明文全体 (例: "面指定の場合の基準平面") を格納し、`HAS_TYPE` リレーションは作成しないでください。
-    - 各 `Attribute` ノードから、それが属する `DataType` ノード (パラメータオブジェクト) へ `HAS_ATTRIBUTE` リレーションを張ってください。 (このリレーションは `HAS_TYPE` とは別です)
-    - `Create[... ]Param` (例: `CreateBracketParam`) のようなメソッドは、対応する `〇〇パラメータオブジェクト` (例: "ブラケット要素のパラメータオブジェクト") を `DataType` とする `ReturnValue` を持つ `Method` ノードとして抽出してください。
+        --- 指示 ---
+        - テキスト全体を解析し、登場するすべてのオブジェクト、メソッド、引数、戻り値を抽出してください。
+        - 「■Partオブジェクトのメソッド」 のように定義されている場合、"Part" を `Object` ノードとし、後続の `Method` ノードは "Part" に `BELONGS_TO` させてください。
+        - `id`はスキーマ定義に従って一意に命名してください。
+        - DataTypeノードは、仕様書に登場するすべての型を重複なくリストアップしてください。もし型が明記されていない場合は、そのまま空文字列を指定してください。
+        - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
+        - JSONオブジェクトにはコメントをいれないでください。
+        - 必ずJSONオブジェクトで出力してください。
+        - Parameterノードのdescriptionについて、`：`の後の文章を抽出し、要約や言い換えをせずにそのまま指定してください。
+        - `〇〇パラメータオブジェクト` というセクションを見つけたら、その名前 (例: "ブラケット要素のパラメータオブジェクト") で `DataType` ノードを抽出してください。
+        - 上記 `DataType` ノードに続く `属性` リスト内の各項目 (例: `DefinitionType //s整数: ...`) は、`Attribute` ノードとして抽出してください。
+        - `Attribute` ノードの `id` は `DataType名_属性名` (例: "ブラケット要素のパラメータオブジェクト_DefinitionType") としてください。
+        - `Attribute` ノードの `description` には、`//` の後の説明文から型情報 (例: `整数:`, `文字列：`) を *除いた* 説明文 (例: "ブラケットの作成方法指定 0: 面指定 1:基準要素指定") を格納してください。
+        - `//` の後の説明文に `型名:` (例: `整数:`) が含まれている場合、その `型名` (例: "整数") を `id` とする `DataType` ノードを作成（または参照）し、`Attribute` ノードからその `DataType` ノードへ `HAS_TYPE` リレーションを張ってください。
+        - 説明文に `型名:` が含まれていない場合 (例: `BasePlane //面指定の場合の基準平面`)、`description` には説明文全体 (例: "面指定の場合の基準平面") を格納し、`HAS_TYPE` リレーションは作成しないでください。
+        - 各 `Attribute` ノードから、それが属する `DataType` ノード (パラメータオブジェクト) へ `HAS_ATTRIBUTE` リレーションを張ってください。 (このリレーションは `HAS_TYPE` とは別です)
+        - `Create[... ]Param` (例: `CreateBracketParam`) のようなメソッドは、対応する `〇〇パラメータオブジェクト` (例: "ブラケット要素のパラメータオブジェクト") を `DataType` とする `ReturnValue` を持つ `Method` ノードとして抽出してください。
 
-    --- API仕様書テキスト ---
-    {raw_text}
-    --- ここまで ---
+        --- API仕様書テキスト ---
+        {raw_text}
+        --- ここまで ---
 
-    抽出後のJSON:
+        抽出後のJSON:
     """
     try:
         response = llm.invoke(prompt)
@@ -329,7 +324,6 @@ def extract_triples_from_specs(
         })
         
     return triples, node_props
-
 
 
 def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, Any]]:
