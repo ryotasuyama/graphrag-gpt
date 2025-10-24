@@ -7,15 +7,13 @@ import json
 from typing import List, Dict, Any, Tuple
 import shutil
 
-from langchain_openai import ChatOpenAI
-
 import config
 from langchain_core.documents import Document
 from langchain_neo4j import Neo4jGraph
 from neo4j.exceptions import ServiceUnavailable
 from langchain_community.graphs.graph_document import GraphDocument, Node, Relationship
 from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings ,ChatOpenAI
 
 DATA_DIR = Path("data")
 NEO4J_URI = config.NEO4J_URI
