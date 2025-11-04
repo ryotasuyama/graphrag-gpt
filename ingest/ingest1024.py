@@ -42,7 +42,6 @@ OPENAI_API_KEY = config.OPENAI_API_KEY
 # モデル名を "gpt-4-turbo" など、利用可能なモデルに変更してください
 llm = ChatOpenAI(temperature=0, model_name="gpt-5", openai_api_key=OPENAI_API_KEY) 
 
-
 def extract_triples_from_script(
     script_path: str, script_text: str
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
@@ -161,40 +160,6 @@ def _read_script_files() -> List[Tuple[str, str]]:
             
     return script_files
 
-def _normalize_text(text: str) -> str:
-    text = text.replace("\ufeff", "")
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = "\n".join(line.rstrip() for line in text.split("\n"))
-    text = text.replace("\t", " ")
-    text = re.sub(r"[ \u00A0\u3000]+", " ", text)
-    return text
-
-def _parse_data_type_descriptions(text: str) -> Dict[str, str]:
-    descriptions = {}
-    current_type = None
-    current_desc_lines = []
-    
-    normalized_text = _normalize_text(text)
-    
-    for line in normalized_text.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-            
-        if line.startswith("■"):
-            if current_type and current_desc_lines:
-                descriptions[current_type] = "\n".join(current_desc_lines).strip()
-            
-            current_type = line.replace("■", "").strip()
-            current_desc_lines = []
-        elif current_type:
-            current_desc_lines.append(line)
-            
-    if current_type and current_desc_lines:
-        descriptions[current_type] = "\n".join(current_desc_lines).strip()
-        
-    return descriptions
-
 
 def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str, Any]]]:
     """LLMを使ってAPI仕様書の生テキストからノードとリレーションを抽出する"""
@@ -276,6 +241,46 @@ def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str
     except Exception as e:
         print(f"      ⚠ LLMによるグラフ抽出またはJSONパース中にエラー: {e}")
         return {"nodes": [], "relationships": []}
+
+def _extract_datatype_descriptions_with_llm(raw_text: str) -> Dict[str, str]:
+    """LLMを使ってapi_arg.txtからデータ型の説明を抽出し、辞書形式で返す"""
+    prompt = f"""
+    あなたはAPI仕様書のデータ型定義を解析する専門家です。
+    以下のテキストから、データ型とその説明文を抽出し、JSON形式で出力してください。
+
+    --- 解析ルール ---
+    1.  `■` (U+25A0) で始まる行は、新しいデータ型の定義開始を示します。
+    2.  `■` の後に続くテキストが「データ型名」です (例: `■文字列` -> "文字列")。
+    3.  データ型名の次の行から、次の `■` が出現する直前まで、またはファイルの終わりまでが、そのデータ型の「説明文」です。
+    4.  説明文は、改行を含めてそのまま連結してください。
+
+    --- 出力形式 ---
+    - 全体を1つのJSONオブジェクトで出力してください。
+    - キーを「データ型名」、値を「説明文」とした辞書(マップ)形式とします。
+    - 例: {{"文字列": "通常の文字列", "浮動小数点": "通常の数値\n\n例: 3.14"}}
+    - JSONはマークダウンのコードブロック(` ```json ... ``` `)で囲んでください。
+    - JSONオブジェクトにはコメントをいれないでください。
+    - 必ずJSONオブジェクトで出力してください。
+
+    --- データ型定義テキスト ---
+    {raw_text}
+    --- ここまで ---
+
+    抽出後のJSON:
+    """
+    try:
+        response = llm.invoke(prompt)
+        # マークダウンのコードブロックからJSON部分を抽出
+        match = re.search(r"```json\s*([\s\S]+?)\s*```", response.content)
+        if match:
+            json_str = match.group(1)
+            return json.loads(json_str)
+        else:
+            # コードブロックがない場合、直接パースを試みる
+            return json.loads(response.content)
+    except Exception as e:
+        print(f"      ⚠ LLMによるデータ型説明の抽出またはJSONパース中にエラー: {e}")
+        return {}
 
 def extract_triples_from_specs(
     graph_data: Dict[str, List[Dict[str, Any]]], 
@@ -367,6 +372,7 @@ def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, Any]]:
     find_calls(root_node)
     return calls
 
+
 def _triples_to_graph_documents(triples: List[Dict[str, Any]], node_props: Dict[str, Dict[str, Any]]) -> List[GraphDocument]:
     node_map: Dict[str, Node] = {}
     for node_id, meta in node_props.items():
@@ -403,7 +409,6 @@ def _triples_to_graph_documents(triples: List[Dict[str, Any]], node_props: Dict[
     gdoc = GraphDocument(nodes=list(node_map.values()), relationships=rels, source=doc)
     return [gdoc]
 
-
 def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
     graph = Neo4jGraph(
         url=NEO4J_URI,
@@ -423,7 +428,6 @@ def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
     res_nodes = graph.query("MATCH (n) RETURN count(n) AS c")
     res_rels = graph.query("MATCH ()-[r]->() RETURN count(r) AS c")
     return int(res_nodes[0]["c"]), int(res_rels[0]["c"])
-
 
 def _build_and_load_chroma(graph_docs: List[GraphDocument]) -> None:
     """
@@ -495,31 +499,36 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     # --- ここからが修正箇所 ---
     # LLMでAPI仕様書から直接グラフ構造(ノード/リレーション)を抽出
     print("🤖 LLMによるAPI仕様書からのグラフ抽出を実行中...")
-    graph_data_from_llm = _extract_graph_from_specs_with_llm(api_text)
+    api_data_from_llm = _extract_graph_from_specs_with_llm(api_text)
     
-    # データ型の説明テキストを読み込む
+    # データ型の説明テキストを読み込む (ルールベースからLLMベースに変更)
     api_arg_text = _read_api_arg_text()
-    type_descriptions = _parse_data_type_descriptions(api_arg_text)
+    print("🤖 LLMによるデータ型説明 (api_arg.txt) の抽出を実行中...")
+    type_descriptions = _extract_datatype_descriptions_with_llm(api_arg_text)
     
     # LLMが生成したデータにデータ型の説明を追加
-    for node in graph_data_from_llm.get("nodes", []):
+    for node in api_data_from_llm.get("nodes", []):
         if node.get("type") == "DataType" and node.get("properties", {}).get("name") in type_descriptions:
             node["properties"]["description"] = type_descriptions[node["properties"]["name"]]
 
     # LLMの出力を後続処理用のトリプル形式に変換
-    spec_triples, spec_node_props = extract_triples_from_specs(graph_data_from_llm, type_descriptions)
+    spec_triples, spec_node_props = extract_triples_from_specs(api_data_from_llm, type_descriptions)
     # --- 修正箇所はここまで ---
     print(f"✔ API仕様書からトリプルを生成: {len(spec_triples)} 件")
 
-    # Neo4jに投入する前のAPI仕様書由来のデータをJSONファイルとして保存
+    # Neo4jに投入する前のAPI仕様書由来のデータ(トリプルとノードプロパティ)をJSONファイルとして保存
+    data_to_save = {
+        "triples": spec_triples,
+        "node_properties": spec_node_props
+    }
     with open("neo4j_data.json", "w", encoding="utf-8") as f:
         json.dump(
-            graph_data_from_llm,
+            data_to_save,
             f,
             indent=2,
             ensure_ascii=False,
         )
-    print("💾 API仕様書解析後のデータを 'neo4j_data.json' に保存しました。")
+    print("💾 API仕様書解析後のデータ(トリプル/ノード)を 'neo4j_data.json' に保存しました。")
 
     # --- 2. スクリプト例 (data/*.py) の解析 ---
     print("\n🐍 スクリプト例 (data/*.py) を解析中...")
@@ -553,7 +562,6 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
         print(f"⚠ グラフデータベースの構築中にエラーが発生しました: {e}")
 
     return gdocs
-
 
 def main() -> None:
     # --- Neo4j構築プロセス ---
