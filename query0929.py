@@ -48,91 +48,90 @@ graph = Neo4jGraph(
 )
 
 CYPHER_GENERATION_TEMPLATE_JP = """
-あなたは、CADアプリケーション「EvoShip」のAPIに関する知識グラフを熟知したエキスパートです。
-ユーザーの質問を解釈し、提供されたグラフスキーマ情報に基づいて、その答えを見つけるための最適なCypherクエリを生成するタスクを担います。
+    あなたは、CADアプリケーション「EvoShip」のAPIに関する知識グラフを熟知したエキスパートです。
+    ユーザーの質問を解釈し、提供されたグラフスキーマ情報に基づいて、その答えを見つけるための最適なCypherクエリを生成するタスクを担います。
 
-## グラフスキーマ情報
-以下に、利用可能なノードラベル、プロパティ、およびリレーションシップタイプの情報を示します。クエリは**必ずこのスキーマ情報に厳密に従って**生成してください。
-{schema}
+    ## グラフスキーマ情報
+    以下に、利用可能なノードラベル、プロパティ、およびリレーションシップタイプの情報を示します。クエリは**必ずこのスキーマ情報に厳密に従って**生成してください。
+    {schema}
 
-## クエリ生成の指示
-1.  **思考プロセスに従う:** 以下の思考プロセスに従って、最適なクエリを段階的に構築してください。
-    -   **Step 1. 意図の理解:** ユーザーが「何を知りたいのか」「何をしたいのか」という根本的な意図を特定します。(例: APIの使い方を知りたい、サンプルコードが欲しい、概念を理解したい、既存コードを修正したい)
-    -   **Step 2. キーワード抽出:** 質問から重要なキーワード（API名、操作対象、目的、修正内容など）を抽出します。
-    -   **Step 3. スキーマとのマッピング:** 抽出したキーワードを**上記のグラフスキーマ情報**と照らし合わせます。検索の起点となるノードラベル (`Method`, `ScriptExample`等)、検索対象のプロパティ (`name`, `description`, `summary`等)、たどるべきリレーションシップタイプ (`IS_EXAMPLE_OF`, `HAS_PARAMETER`等) を慎重に選択します。スキーマに存在しない要素は絶対に使用しないでください。
-    -   **Step 4. クエリ生成:** 上記の考察に基づき、最終的なCypherクエリを生成します。キーワード検索には `toLower()` と `CONTAINS` を活用し、できるだけ多くの関連情報を取得できるよう努めてください。ヒットしない場合は、検索条件を緩和する（例：ANDをORにする、検索対象プロパティを増やす）ことも検討してください。
+    ## クエリ生成の指示
+    1.  **思考プロセスに従う:** 以下の思考プロセスに従って、最適なクエリを段階的に構築してください。
+        -   **Step 1. 意図の理解:** ユーザーが「何を知りたいのか」「何をしたいのか」という根本的な意図を特定します。(例: APIの使い方を知りたい、サンプルコードが欲しい、概念を理解したい、既存コードを修正したい)
+        -   **Step 2. キーワード抽出:** 質問から重要なキーワード（API名、操作対象、目的、修正内容など）を抽出します。
+        -   **Step 3. スキーマとのマッピング:** 抽出したキーワードを**上記のグラフスキーマ情報**と照らし合わせます。検索の起点となるノードラベル (`Method`, `ScriptExample`等)、検索対象のプロパティ (`name`, `description`, `summary`等)、たどるべきリレーションシップタイプ (`IS_EXAMPLE_OF`, `HAS_PARAMETER`等) を慎重に選択します。スキーマに存在しない要素は絶対に使用しないでください。
+        -   **Step 4. クエリ生成:** 上記の考察に基づき、最終的なCypherクエリを生成します。キーワード検索には `toLower()` と `CONTAINS` を活用し、できるだけ多くの関連情報を取得できるよう努めてください。ヒットしない場合は、検索条件を緩和する（例：ANDをORにする、検索対象プロパティを増やす）ことも検討してください。
 
-2.  **検索戦略のヒント:**
-    -   **「方法」「やり方」** に関する質問には、`Method`ノードの `description` や `ScriptExample`ノードの `summary` を検索するのが有効です。
-    -   **「サンプルコード」「実装例」** に関する質問には、`ScriptExample`ノードを起点とし、`IS_EXAMPLE_OF`リレーションで関連する`Method`を探します。`ScriptExample`ノードには`code`プロパティにコード全文が格納されています。
-    -   **概念や機能**に関する質問には、`Entity` ノードを検索するのが有効です。
-    -   質問に複数のキーワードが含まれる場合、それらが異なるノードのプロパティにマッチする可能性を考慮してください。例えば、「プレートを作成するAPIの引数」という質問では、「プレート」「作成」が`Method`や`ScriptExample`に、「引数」が`Parameter`ノードに関連する可能性があります。
+    2.  **検索戦略のヒント:**
+        -   **「方法」「やり方」** に関する質問には、`Method`ノードの `description` や `ScriptExample`ノードの `summary` を検索するのが有効です。
+        -   **「サンプルコード」「実装例」** に関する質問には、`ScriptExample`ノードを起点とし、`IS_EXAMPLE_OF`リレーションで関連する`Method`を探します。`ScriptExample`ノードには`code`プロパティにコード全文が格納されています。
+        -   **概念や機能**に関する質問には、`Entity` ノードを検索するのが有効です。
+        -   質問に複数のキーワードが含まれる場合、それらが異なるノードのプロパティにマッチする可能性を考慮してください。例えば、「プレートを作成するAPIの引数」という質問では、「プレート」「作成」が`Method`や`ScriptExample`に、「引数」が`Parameter`ノードに関連する可能性があります。
 
-## Few-shot Examples (質問とクエリの例)
--   **質問:** 「プレートを作成するサンプルコードはありますか？」
--   **Cypherクエリ:**
-    ```cypher
-    MATCH (s:ScriptExample)-[:IS_EXAMPLE_OF]->(m:Method)
-    WHERE (toLower(s.summary) CONTAINS 'プレート' AND toLower(s.summary) CONTAINS '作成')
-       OR (toLower(m.description) CONTAINS 'プレート' AND toLower(m.description) CONTAINS '作成')
-    RETURN s.name AS script_name, s.code AS script_code, s.summary AS script_summary
-    ```
--   **質問:** 「点群を扱うAPIには何がありますか？」
--   **Cypherクエリ:**
-    ```cypher
-    MATCH (m:Method)-[:HAS_PARAMETER|HAS_RETURNS]->(:Parameter|ReturnValue)-[:HAS_TYPE]->(t:DataType)
-    WHERE toLower(t.name) CONTAINS '点'
-    RETURN DISTINCT m.name AS method_name, m.description AS method_description
-    ```
-
-## 出力要件
--   生成されたCypherクエリのみを、` ```cypher ... ``` ` のようなコードブロックなしで、**文字列としてそのまま出力してください。**
--   説明、前置き、括弧、謝罪は一切含めないでください。
--   **クエリは必ず `MATCH` や `RETURN` などのキーワードから開始してください。**
----
-**質問:** {question}
-**Cypherクエリ:**
-"""
+    ## Few-shot Examples (質問とクエリの例)
+    -   **質問:** 「プレートを作成するサンプルコードはありますか？」
+    -   **Cypherクエリ:**
+        ```cypher
+        MATCH (s:ScriptExample)-[:IS_EXAMPLE_OF]->(m:Method)
+        WHERE (toLower(s.summary) CONTAINS 'プレート' AND toLower(s.summary) CONTAINS '作成')
+        OR (toLower(m.description) CONTAINS 'プレート' AND toLower(m.description) CONTAINS '作成')
+        RETURN s.name AS script_name, s.code AS script_code, s.summary AS script_summary
+        ```
+    -   **質問:** 「点群を扱うAPIには何がありますか？」
+    -   **Cypherクエリ:**
+        ```cypher
+        MATCH (m:Method)-[:HAS_PARAMETER|HAS_RETURNS]->(:Parameter|ReturnValue)-[:HAS_TYPE]->(t:DataType)
+        WHERE toLower(t.name) CONTAINS '点'
+        RETURN DISTINCT m.name AS method_name, m.description AS method_description
+        ```
+    ## 出力要件
+    -   生成されたCypherクエリのみを、` ```cypher ... ``` ` のようなコードブロックなしで、**文字列としてそのまま出力してください。**
+    -   説明、前置き、括弧、謝罪は一切含めないでください。
+    -   **クエリは必ず `MATCH` や `RETURN` などのキーワードから開始してください。**
+    ---
+    **質問:** {question}
+    **Cypherクエリ:**
+    """
 
 CYPHER_GENERATION_PROMPT = PromptTemplate(
     input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE_JP
 )
 
 QA_TEMPLATE = """
-あなたは、CADアプリケーション「EvoShip」をPythonで操作するエキスパートです。
-あなたのタスクは、ユーザーの要求とナレッジグラフから取得した情報を基に、単一の完成された実行可能なPythonスクリプトと、そのスクリプトに関する説明を生成することです。
+    あなたは、CADアプリケーション「EvoShip」をPythonで操作するエキスパートです。
+    あなたのタスクは、ユーザーの要求とナレッジグラフから取得した情報を基に、単一の完成された実行可能なPythonスクリプトと、そのスクリプトに関する説明を生成することです。
 
-ユーザーの要求:
-{question}
+    ユーザーの要求:
+    {question}
 
-ナレッジグラフから取得した関連情報:
-{context}
+    ナレッジグラフから取得した関連情報:
+    {context}
 
-上記の情報を基に、以下の要件と出力形式に従って回答を生成してください。
+    上記の情報を基に、以下の要件と出力形式に従って回答を生成してください。
 
-## スクリプト生成の要件
-- **ユーザーの要求に「元のスクリプト」が含まれる場合は、それを基に編集・修正を行ってください。**
-- **「元のスクリプト」が含まれない場合は、ゼロから新しいスクリプトを作成してください。**
-- 新規作成の場合は、常に `import win32com.client` から始めること。
-- 新規作成の場合は、アプリケーションを起動する定型コード `evoship = win32com.client.DispatchEx("EvoShip.Application")` を含めること。
-- 新規作成の場合は、ドキュメントとパートを作成するコード `doc = evoship.Create3DDocument()` と `part = doc.GetPart()` を含めること。
-- メソッドの返り値は、後続のメソッドで利用するために変数に格納すること。
-- 複数のAPI呼び出しがある場合、それらを論理的な順序で構成すること。
-- 取得した情報から最も適切と考えられる単一のスクリプトを作成すること。
-- ナレッジグラフからの情報にサンプルコードが含まれている場合は、それを最優先で参考にし、必要に応じて質問内容に合わせて修正してください。
+    ## スクリプト生成の要件
+    - **ユーザーの要求に「元のスクリプト」が含まれる場合は、それを基に編集・修正を行ってください。**
+    - **「元のスクリプト」が含まれない場合は、ゼロから新しいスクリプトを作成してください。**
+    - 新規作成の場合は、常に `import win32com.client` から始めること。
+    - 新規作成の場合は、アプリケーションを起動する定型コード `evoship = win32com.client.DispatchEx("EvoShip.Application")` を含めること。
+    - 新規作成の場合は、ドキュメントとパートを作成するコード `doc = evoship.Create3DDocument()` と `part = doc.GetPart()` を含めること。
+    - メソッドの返り値は、後続のメソッドで利用するために変数に格納すること。
+    - 複数のAPI呼び出しがある場合、それらを論理的な順序で構成すること。
+    - 取得した情報から最も適切と考えられる単一のスクリプトを作成すること。
+    - ナレッジグラフからの情報にサンプルコードが含まれている場合は、それを最優先で参考にし、必要に応じて質問内容に合わせて修正してください。
 
-## 出力形式
-以下のマークダウン形式で回答してください。コードや説明以外の余計な文章は含めないでください。
+    ## 出力形式
+    以下のマークダウン形式で回答してください。コードや説明以外の余計な文章は含めないでください。
 
-## 生成されたスクリリプト
-```python
-# ここにPythonスクリプトを記述
-````
+    ## 生成されたスクリリプト
+    ```python
+    # ここにPythonスクリプトを記述
+    ````
 
-### スクリプトの説明
+    ### スクリプトの説明
 
-ここに、生成したスクリプトが何をするものか、使用されている主要なAPIの目的、そしてユーザーが注意すべき点などを簡潔に解説してください。
-"""
+    ここに、生成したスクリプトが何をするものか、使用されている主要なAPIの目的、そしてユーザーが注意すべき点などを簡潔に解説してください。
+    """
 
 QA_PROMPT = PromptTemplate(
 input_variables=["context", "question"], template=QA_TEMPLATE
