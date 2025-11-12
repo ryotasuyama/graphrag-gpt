@@ -5,6 +5,7 @@ from langchain.chains import RetrievalQA
 from langchain_neo4j.chains.graph_qa.cypher import GraphCypherQAChain
 from langchain_neo4j import Neo4jGraph
 from langchain_core.prompts import PromptTemplate
+from neo4j.exceptions import ClientError, CypherSyntaxError
 
 # ---------- 共通 LLM ----------
 llm = ChatOpenAI(
@@ -112,7 +113,43 @@ allow_dangerous_requests=True,
 top_k=10000,
 )
 
-# \---------- ルート選択と実行 ----------
+# ---------- ルート選択と実行 ----------
+
+def execute_graph_qa(question: str, is_retry: bool = False):
+    """
+    GraphCypherQAChainを実行し、エラーハンドリングとリトライを行う。
+    """
+    try:
+        # 1. Cypherクエリを生成し、グラフ検索を実行
+        return graph_qa.invoke({"query": question})
+    except (ClientError, CypherSyntaxError) as e:
+        # 2. Cypherの構文エラーなど、Neo4j起因のエラーをキャッチ
+        print(f"\n--- [Error] An error occurred during graph query: {e} ---")
+        
+        # 3. is_retryがTrueの場合（＝再試行に失敗した場合）は、例外を再発生させて処理を中断
+        if is_retry:
+            print("--- [Error] Retry failed. Raising exception. ---")
+            raise e
+
+        # 4. LLMに対して、エラー内容を伝えて修正を促すための新しい質問を作成
+        print("--- [Info] Attempting to fix the query by regenerating... ---")
+        new_question = f"""
+        以下のCypherクエリを実行したところ、Neo4jデータベースでエラーが発生しました。
+        このエラーは、LLMが生成したCypherクエリの構文やスキーマの不整合に起因する可能性が高いです。
+
+        【エラーが発生したCypherクエリ】
+        {e}
+
+        【元の質問】
+        {question}
+
+        【修正の指示】
+        上記のエラーメッセージを参考に、元の質問の意図を維持したまま、グラフスキーマに準拠した正しいCypherクエリを再生成してください。
+        特に、存在しないノードラベル、リレーションシップ、プロパティを使用していないか確認してください。
+        """
+        # 5. is_retry=True を設定して、再度実行（無限ループを防止）
+        return execute_graph_qa(new_question, is_retry=True)
+
 
 def ask(question: str, route: str = "graph") -> str:
     """
@@ -123,7 +160,7 @@ def ask(question: str, route: str = "graph") -> str:
 
     if route == "graph":
         print("--- [Route: graph] Running Graph Search ---")
-        result = graph_qa.invoke({"query": final_question})
+        result = execute_graph_qa(final_question)
         return result['result']
 
     elif route == "vector":
@@ -176,7 +213,7 @@ def ask(question: str, route: str = "graph") -> str:
 {question}
 """
         print("Step 3/3: Executing graph search with augmented question...")
-        result = graph_qa.invoke({"query": hybrid_question})
+        result = execute_graph_qa(hybrid_question)
         return result['result']
 
     else:
