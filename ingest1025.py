@@ -412,9 +412,13 @@ def _rebuild_graph_in_neo4j(graph_docs: List[GraphDocument]) -> Tuple[int, int]:
     res_rels = graph.query("MATCH ()-[r]->() RETURN count(r) AS c")
     return int(res_nodes[0]["c"]), int(res_rels[0]["c"])
 
-def _build_and_load_chroma(graph_docs: List[GraphDocument]) -> None:
+def _build_and_load_chroma(
+    triples: List[Dict[str, Any]], 
+    node_props: Dict[str, Dict[str, Any]]
+    ) -> None:
     """
-    グラフドキュメントのノード情報からベクトルを生成し、ChromaDBに保存する
+    triples (リレーション定義) と node_props (ノード定義) を受け取り、
+    それらをそのままベクトル化してChromaDBに保存する。
     """
     print("\n🚀 ChromaDBのベクトルデータを生成・保存中...")
 
@@ -424,31 +428,45 @@ def _build_and_load_chroma(graph_docs: List[GraphDocument]) -> None:
 
     docs_for_vectorstore: List[Document] = []
     
-    if not graph_docs:
-        print("⚠ グラフドキュメントが見つからないため、ChromaDBの構築をスキップします。")
+    if not node_props and not triples:
+        print("⚠ データ(node_props/triples)が見つからないため、ChromaDBの構築をスキップします。")
         return
 
-    # gdoc (GraphDocument) のノードをベクトル化の対象にする
-    print(f"✔ グラフから {len(graph_docs[0].nodes)} 個のノードをベクトル化の対象とします。")
-    for node in graph_docs[0].nodes:
-        props = node.properties
-        content = ""
-        # ノードのタイプに応じて、ベクトル化するテキストの内容を整形
-        if node.type == "Method":
-            content = f"APIメソッド\nメソッド名: {props.get('name', '')}\n説明: {props.get('description', '')}"
-        elif node.type == "ScriptExample":
-            content = f"スクリプト例\nファイル名: {props.get('name', '')}\n全文コード:\n```python\n{props.get('code', '')}\n```"
-        else:
-            # その他のノードタイプはプロパティを平文化
-            prop_text = "\n".join([f"- {key}: {value}" for key, value in props.items()])
-            content = f"ノードタイプ: {node.type}\nID: {node.id}\nプロパティ:\n{prop_text}"
+    # 1. ノードのベクトル化
+    # node_props = { "NodeID": { "type": "Type", "properties": {...} }, ... }
+    print(f"✔ {len(node_props)} 個のノード定義をベクトル化の対象とします。")
+    for node_id, meta in node_props.items():
+        node_type = meta.get("type", "Unknown")
+        properties = meta.get("properties", {})
+        
+        # ノード情報を文字列化
+        content = f"Node ID: {node_id}\nNode Type: {node_type}\nProperties: {json.dumps(properties, ensure_ascii=False)}"
         
         metadata = {
             "source": "graph_node",
-            "node_id": node.id,
-            "node_type": node.type,
+            "node_id": node_id,
+            "node_type": node_type,
         }
-        docs_for_vectorstore.append(Document(page_content=content.strip(), metadata=metadata))
+        docs_for_vectorstore.append(Document(page_content=content, metadata=metadata))
+
+    # 2. リレーションのベクトル化
+    # triples = [ {"source": "ID", "source_type": "Type", "label": "REL", "target": "ID", "target_type": "Type"}, ... ]
+    print(f"✔ {len(triples)} 個のリレーション定義をベクトル化の対象とします。")
+    for rel in triples:
+        source_id = rel.get("source")
+        target_id = rel.get("target")
+        rel_type = rel.get("label")
+        
+        # リレーションを表すテキストを作成
+        content = f"Relationship: {source_id} -[{rel_type}]-> {target_id}"
+        
+        metadata = {
+            "source": "graph_relationship",
+            "source_node": source_id,
+            "target_node": target_id,
+            "relation_type": rel_type,
+        }
+        docs_for_vectorstore.append(Document(page_content=content, metadata=metadata))
 
     # ChromaDBに投入する前のデータをJSONファイルとして保存
     chroma_data_to_save = [
@@ -469,16 +487,20 @@ def _build_and_load_chroma(graph_docs: List[GraphDocument]) -> None:
         print(f"✔ Chroma DB created and persisted with {len(docs_for_vectorstore)} documents at: {CHROMA_PERSIST_DIR}")
     except Exception as e:
         print(f"⚠ Chroma DBの作成に失敗しました: {e}")
-
-def _build_and_load_neo4j() -> List[GraphDocument]:
+        
+def _build_and_load_neo4j() -> Tuple[List[GraphDocument], List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
     API仕様とスクリプト例を解析し、Neo4jにグラフを構築する。
-    構築したグラフドキュメントを返す。
+    
+    Returns:
+        Tuple containing:
+        1. gdocs (Neo4j挿入用)
+        2. all_triples (ChromaDB挿入用の生リレーションデータ)
+        3. all_node_props (ChromaDB挿入用の生ノードデータ)
     """
     # --- 1. API仕様書 (api*.txt, api_arg.txt) の解析 ---
     print("📄 API仕様書を解析中...")
 
-    # --- ここからが修正箇所 ---
     # 4つのAPI仕様書ファイルを定義
     api_txt_files = [
         DATA_DIR / "api1.txt",
@@ -597,7 +619,13 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
 
     # --- 3. データの統合とグラフDBへの投入 ---
     print("\n🔗 データを統合してグラフを構築中...")
-    gdocs = _triples_to_graph_documents(spec_triples + script_triples, {**spec_node_props, **script_node_props})
+    
+    # Chroma用にデータをまとめる
+    all_triples = spec_triples + script_triples
+    all_node_props = {**spec_node_props, **script_node_props}
+    
+    # Neo4j用のGraphDocumentを生成
+    gdocs = _triples_to_graph_documents(all_triples, all_node_props)
     
     try:
         node_count, rel_count = _rebuild_graph_in_neo4j(gdocs)
@@ -608,16 +636,17 @@ def _build_and_load_neo4j() -> List[GraphDocument]:
     except Exception as e:
         print(f"⚠ グラフデータベースの構築中にエラーが発生しました: {e}")
 
-    return gdocs
+    # gdocsだけでなく、生のtriplesとnode_propsも返す
+    return gdocs, all_triples, all_node_props
 
 def main() -> None:
     # --- Neo4j構築プロセス ---
-    # Neo4jを構築し、その過程で生成されたグラフドキュメント(gdocs)を受け取る
-    gdocs = _build_and_load_neo4j()
+    # Neo4jを構築し、その過程で生成された生のtriplesとnode_propsも受け取る
+    gdocs, all_triples, all_node_props = _build_and_load_neo4j()
 
     # --- ChromaDB構築プロセス ---
-    # 受け取ったgdocsを使ってChromaDBを構築する
-    _build_and_load_chroma(gdocs)
+    # gdocsではなく、生のtriplesとnode_propsを渡してChromaDBを構築する
+    _build_and_load_chroma(all_triples, all_node_props)
 
 if __name__ == "__main__":
     main()
