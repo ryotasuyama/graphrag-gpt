@@ -1,6 +1,8 @@
 .env
 __pycache__/
+chroma_db/
 chroma/
 data_copy/
 config.py
-script/
+neo4j_data.json
+chroma_data.json
