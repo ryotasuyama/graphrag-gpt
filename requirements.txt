@@ -2,7 +2,10 @@ langchain>=0.3.4
 langchain-openai
 langchain-community
 langchain-neo4j
+langchain-experimental
 chromadb
 tiktoken
 python-dotenv
-langchain-experimental
+tree-sitter
+tree-sitter-python
+neo4j
