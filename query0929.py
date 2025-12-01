@@ -14,7 +14,7 @@
     例: python query.py "<質問文>"
     例: python query.py <ファイルパス> "<編集指示>"
 """
-import sys, os, textwrap, config
+import sys, os, textwrap, config, subprocess, re
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA
@@ -147,7 +147,74 @@ allow_dangerous_requests=True,
 top_k=10000,
 )
 
-# \---------- ルート選択と実行 ----------
+
+# ---------- Self-Correction ----------
+
+FIX_TEMPLATE = """
+    あなたはPythonコードの修正を行うエキスパートです。
+    以下のコードを実行したところ、エラーが発生しました。
+    エラーメッセージと元のコードを分析し、エラーを修正した完全なPythonコードを生成してください。
+
+    ## 元のコード
+    ```python
+    {code}
+    ```
+
+    ## エラーメッセージ
+    {error}
+
+    ## 修正の指示
+    - エラーの原因を特定し、修正してください。
+    - 修正後のコードのみを以下の形式で出力してください。
+    - 説明は最小限に留めてください。
+
+    ```python
+    # 修正後のコード
+    ```
+"""
+
+FIX_PROMPT = PromptTemplate(
+    input_variables=["code", "error"], template=FIX_TEMPLATE
+)
+
+def run_script(script_path: str) -> tuple[bool, str]:
+    """
+    スクリプトを実行し、成功したかどうかと出力（またはエラー）を返します。
+    戻り値: (success: bool, message: str)
+    """
+    print(f"--- Executing script: {script_path} ---")
+    try:
+        # タイムアウトを設定して無限ループなどを防止（例: 30秒）
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            return True, result.stdout
+        else:
+            return False, result.stderr
+    except subprocess.TimeoutExpired:
+        return False, "Error: Script execution timed out."
+    except Exception as e:
+        return False, f"Error executing script: {str(e)}"
+
+def fix_code(code: str, error_message: str) -> str:
+    """
+    エラー情報を元にLLMに修正を依頼します。
+    """
+    print("--- Requesting fix from LLM ---")
+    
+    prompt = FIX_PROMPT.format(code=code, error=error_message)
+    
+    # LLMへの問い合わせ (既存のllmインスタンスを使用)
+    response = llm.invoke(prompt)
+    
+    return response.content
+
+# ---------- ルート選択と実行 ----------
 
 def ask(question: str, route: str = "graph", original_code: str = None) -> str:
     """
@@ -159,19 +226,19 @@ def ask(question: str, route: str = "graph", original_code: str = None) -> str:
     # LLMに渡す最終的な質問文を組み立てる
     if original_code:
         final_question = f"""
-以下の【元のスクリプト】を【編集指示】に従って修正してください。
+        以下の【元のスクリプト】を【編集指示】に従って修正してください。
 
-【元のスクリプト】
+        【元のスクリプト】
 
-```python
-{original_code}
-```
+        ```python
+        {original_code}
+        ```
 
------
+        -----
 
-【編集指示】
-{question}
-"""
+        【編集指示】
+        {question}
+        """
     else:
         # 新規作成モード
         final_question = question
@@ -318,40 +385,67 @@ if __name__ == "__main__":
         print("--- [Mode: Create New] ---")
 
     # --- 実行 ---
+    # --- 実行 ---
     try:
-        answer = ask(question, route, original_code=original_code)
+        MAX_RETRIES = 3
+        current_code = None
         
-        # --- 出力処理 ---
-        if args.output:
-            # スクリプト部分を正規表現で抽出
-            script_match = re.search(r"```python\n(.*?)```", answer, re.DOTALL)
-            if script_match:
-                script_code = script_match.group(1).strip()
-                
-                # スクリプトをファイルに書き込む
-                with open(args.output, 'w', encoding='utf-8') as f:
-                    f.write(script_code)
-                print(f"\n--- Script saved to: {args.output} ---")
-
-                # 説明部分を抽出して表示
-                explanation_match = re.search(r"### スクリプトの説明\n\n(.*)", answer, re.DOTALL)
-                if explanation_match:
-                    explanation = explanation_match.group(1).strip()
-                    print("\n--- Script Explanation ---")
-                    print(explanation)
-                else:
-                    # スクリプト以外の部分を説明として表示
-                    remaining_answer = re.sub(r"```python\n(.*?)```", "", answer, flags=re.DOTALL).strip()
-                    print("\n--- Answer ---")
-                    print(remaining_answer)
-
+        for attempt in range(MAX_RETRIES + 1):
+            if attempt == 0:
+                # 初回生成
+                answer = ask(question, route, original_code=original_code)
             else:
-                print("\n--- Generated Answer (script not found) ---")
+                # 修正ループ
+                print(f"\n=== Self-Correction Attempt {attempt}/{MAX_RETRIES} ===")
+                # 前回のコードとエラーを使って修正
+                # ここでは直前のループで current_code と error_output が設定されている前提
+                answer = fix_code(current_code, error_output)
+
+            # --- 出力処理とスクリプト抽出 ---
+            script_code = None
+            
+            if args.output:
+                # スクリプト部分を正規表現で抽出
+                script_match = re.search(r"```python\n(.*?)```", answer, re.DOTALL)
+                if script_match:
+                    script_code = script_match.group(1).strip()
+                    current_code = script_code # 次の修正のために保存
+                    
+                    # スクリプトをファイルに書き込む
+                    with open(args.output, 'w', encoding='utf-8') as f:
+                        f.write(script_code)
+                    print(f"\n--- Script saved to: {args.output} ---")
+
+                    # 説明部分を抽出して表示 (初回のみ、または毎回表示)
+                    explanation_match = re.search(r"### スクリプトの説明\n\n(.*)", answer, re.DOTALL)
+                    if explanation_match:
+                        explanation = explanation_match.group(1).strip()
+                        print("\n--- Script Explanation ---")
+                        print(explanation)
+                    
+                    # --- 実行と検証 ---
+                    success, output = run_script(args.output)
+                    
+                    if success:
+                        print("\n--- Execution Successful ---")
+                        print(output)
+                        break # 成功したらループ終了
+                    else:
+                        print(f"\n--- Execution Failed (Attempt {attempt+1}) ---")
+                        print(output)
+                        error_output = output # 次の修正のためにエラーを保存
+                        
+                        if attempt == MAX_RETRIES:
+                            print("\n--- Max retries reached. Giving up. ---")
+                else:
+                    print("\n--- Generated Answer (script not found) ---")
+                    print(answer)
+                    break # スクリプトがない場合は実行できないので終了
+            else:
+                # 出力ファイルが指定されていない場合は、従来通り全体を出力して終了（ループなし）
+                print("\n--- Generated Answer ---")
                 print(answer)
-        else:
-            # 出力ファイルが指定されていない場合は、従来通り全体を出力
-            print("\n--- Generated Answer ---")
-            print(answer)
+                break
 
     except ValueError as e:
         print(f"\nエラー: {e}")
