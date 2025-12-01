@@ -1,67 +1,14 @@
-"""
-使い方:
-[モード1: 新規スクリプト生成]
-    python query.py "<質問文>" vector     # ベクトル検索で新規作成
-    python query.py "<質問文>" hybrid  
-
-[モード2: 既存スクリプト編集]
-    python query.py <ファイルパス> "<編集指示>" vector
-    python query.py <ファイルパス> "<編集指示>" graph
-    python query0929.py ./board.py "板の四隅に直方体の柱を追加してください。" hybrid
-
-[デフォルトの動作]
-- ルートを省略した場合は 'graph' が採用されます。
-    例: python query.py "<質問文>"
-    例: python query.py <ファイルパス> "<編集指示>"
-"""
 import sys, os, textwrap, config, subprocess, re
-# --- [変更点] 必要なモジュールを更新 ---
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-# RetrievalQA は削除し、新しいチェーン作成関数をインポート
-from langchain_classic.chains import create_retrieval_chain
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate
-
+from langchain_openai import ChatOpenAI
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_core.prompts import PromptTemplate
 
-# ---------- 共通 LLM ----------
 llm = ChatOpenAI(
     model="gpt-5", 
-    temperature=1,
+    temperature=0,
     openai_api_key=config.OPENAI_API_KEY,
 )
 
-# ---------- Vector QA (Updated) ----------
-vectordb = Chroma(
-    persist_directory="data/chroma_db",
-    embedding_function=OpenAIEmbeddings(openai_api_key=config.OPENAI_API_KEY),
-)
-
-# --- [変更点] create_retrieval_chain への移行 ---
-# 1. 回答生成用のプロンプトテンプレートを定義
-qa_system_prompt = (
-    "あなたはCADアプリケーション「EvoShip」のAPI操作コードを生成するアシスタントです。\n"
-    "以下の検索されたコンテキスト情報を使用して、ユーザーの質問に答えてください。\n"
-    "回答のみを出力してください。\n\n"
-    "{context}"
-)
-qa_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", qa_system_prompt),
-        ("human", "{input}"),
-    ]
-)
-
-# 2. ドキュメント結合チェーン (Stuff chain) の作成
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-
-# 3. 検索チェーン (Retrieval chain) の作成
-vector_qa_chain = create_retrieval_chain(vectordb.as_retriever(), question_answer_chain)
-# -----------------------------------------------
-
-# ---------- Graph QA ----------
 graph = Neo4jGraph(
     url=config.NEO4J_URI,
     username=config.NEO4J_USER,
@@ -159,17 +106,15 @@ input_variables=["context", "question"], template=QA_TEMPLATE
 )
 
 graph_qa = GraphCypherQAChain.from_llm(
-llm=llm,
-graph=graph,
-verbose=True,
-cypher_prompt=CYPHER_GENERATION_PROMPT,
-qa_prompt=QA_PROMPT,
-allow_dangerous_requests=True,
-top_k=10000,
+    llm=llm,
+    graph=graph,
+    verbose=True,
+    cypher_prompt=CYPHER_GENERATION_PROMPT,
+    qa_prompt=QA_PROMPT,
+    allow_dangerous_requests=True,
+    top_k=10000,
 )
 
-
-# ---------- Self-Correction ----------
 
 FIX_TEMPLATE = """
     あなたはPythonコードの修正を行うエキスパートです。
@@ -232,121 +177,36 @@ def fix_code(code: str, error_message: str) -> str:
     
     return response.content
 
-# ---------- ルート選択と実行 ----------
-
-def ask(question: str, route: str = "graph", original_code: str = None) -> str:
+def ask(question: str, original_code: str = None) -> str:
     """
-    指定されたルート（検索方法）に基づいて質問に回答します。
+    Neo4jグラフ検索を用いて質問に回答します。
     original_codeが指定された場合は、それを編集するタスクとして扱います。
     """
-    route = route.lower()
-
     # LLMに渡す最終的な質問文を組み立てる
     if original_code:
         final_question = f"""
-以下の【元のスクリプト】を【編集指示】に従って修正してください。
+    以下の【元のスクリプト】を【編集指示】に従って修正してください。
 
-【元のスクリプト】
-
-```python
-{original_code}
-```
-
------
-
-【編集指示】
-{question}
-"""
+    【元のスクリプト】
+    ```python
+    {original_code}
+    【編集指示】
+    {question}
+    """
     else:
-        # 新規作成モード
         final_question = question
 
-    if route == "graph":
-        print("--- [Route: graph] Running Graph Search ---")
-        result = graph_qa.invoke({"query": final_question})
-        return result['result']
-        
-    elif route == "vector":
-        print("--- [Route: vector] Running Vector Search ---")
-        print("Step 1/2: Retrieving context from vector store...")
-        retriever = vectordb.as_retriever()
-        docs = retriever.get_relevant_documents(question)
-        
-        if docs:
-            retrieved_context_str = "\n\n".join([f"--- Document ---\n{doc.page_content}" for doc in docs])
-            print("\n--- Retrieved Context ---")
-            print(retrieved_context_str)
-            print("-------------------------\n")
-        else:
-            print("No relevant context found in vector store.")
-        
-        print("Step 2/2: Generating answer based on context...")
-        result = vector_qa.invoke({"query": final_question})
-        return result['result']
+    print("--- Running Graph Search (Neo4j) ---")
+    # グラフ検索の実行
+    result = graph_qa.invoke({"query": final_question})
+    return result['result']
 
-    elif route == "hybrid":
-        print("--- [Route: hybrid] Running Hybrid Search (Vector -> Graph) ---")
-        
-        print("Step 1/3: Retrieving context from vector store using the instruction...")
-        retriever = vectordb.as_retriever()
-        docs = retriever.get_relevant_documents(question)
-        
-        if docs:
-            retrieved_context_str = "\n\n".join([f"--- Document ---\n{doc.page_content}" for doc in docs])
-            print("\n--- Retrieved Context for Hybrid Search ---")
-            print(retrieved_context_str)
-            print("-------------------------------------------\n")
-        else:
-            print("No relevant context found in vector store.")
-
-        vector_context = "\n\n".join([doc.page_content for doc in docs])
-        
-        if not vector_context:
-            print("Step 2/3: No relevant context found. Using original instruction for graph search.")
-            hybrid_question = final_question
-        else:
-            print("Step 2/3: Augmenting instruction with retrieved context.")
-            if original_code:
-                hybrid_question = f"""
-以下の【ベクトル検索で得られた関連情報】を最優先の参考情報として活用し、【元のスクリプト】を【編集指示】に従って修正してください。
-
-【元のスクリプト】
-
-```python
-{original_code}
-```
-
-## 【ベクトル検索で得られた関連情報】 {vector_context}
-
-【編集指示】
-{question}
-"""
-            else:
-                hybrid_question = f"""
-以下の【ベクトル検索で得られた関連情報】を最優先の参考情報として活用し、元の質問に答えてください。
-この情報は、グラフ検索でどのノードやリレーションシップに着目すべきかの重要なヒントとなります。
-
-## 【ベクトル検索で得られた関連情報】 {vector_context}
-
-【元の質問】
-{question}
-"""
-        print("Step 3/3: Executing graph search with augmented question...")
-        result = graph_qa.invoke({"query": hybrid_question})
-        return result['result']
-
-    else:
-        raise ValueError("route は 'vector', 'graph', 'hybrid' のみ指定できます。")
-
-# \---------- CLI 入口 ----------
-
-if __name__ == "__main__":
-    import argparse
+if __name__ == "__main__": 
+    import argparse 
     import re
 
-    # --- 引数パーサーの設定 ---
     parser = argparse.ArgumentParser(
-        description="Generate or edit Python scripts for EvoShip based on user instructions.",
+        description="Generate or edit Python scripts for EvoShip using GraphRAG (Neo4j).",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=textwrap.dedent(__doc__)
     )
@@ -359,23 +219,17 @@ if __name__ == "__main__":
         nargs='?', 
         help="The editing instruction in quotes (required in edit mode)."
     )
-    parser.add_argument(
-        "route", 
-        nargs='?', 
-        default="graph", 
-        choices=['vector', 'graph', 'hybrid'],
-        help="The search route to use. Defaults to 'graph'."
-    )
+    # route引数は削除されました
     parser.add_argument(
         "-o", "--output", 
         help="The file path to save the generated Python script."
     )
-    
+
     args = parser.parse_args()
 
     original_code = None
     question = ""
-    
+
     # --- 引数の解析とモード判定 ---
     # [モード2: 編集モード]
     if os.path.exists(args.first_arg):
@@ -386,7 +240,6 @@ if __name__ == "__main__":
         
         file_path = args.first_arg
         question = args.instruction
-        route = args.route
         
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -399,24 +252,24 @@ if __name__ == "__main__":
     # [モード1: 新規作成モード]
     else:
         question = args.first_arg
-        route = args.instruction if args.instruction in ['vector', 'graph', 'hybrid'] else args.route
+        # instruction引数がある場合でも、route指定ではないため単に無視するか、警告を出す設計も可能ですが、
+        # ここではシンプルに first_arg を質問として扱います。
         print("--- [Mode: Create New] ---")
 
-    # --- 実行 ---
     # --- 実行 ---
     try:
         MAX_RETRIES = 3
         current_code = None
+        error_output = None # 初期化
         
         for attempt in range(MAX_RETRIES + 1):
             if attempt == 0:
                 # 初回生成
-                answer = ask(question, route, original_code=original_code)
+                answer = ask(question, original_code=original_code)
             else:
                 # 修正ループ
                 print(f"\n=== Self-Correction Attempt {attempt}/{MAX_RETRIES} ===")
                 # 前回のコードとエラーを使って修正
-                # ここでは直前のループで current_code と error_output が設定されている前提
                 answer = fix_code(current_code, error_output)
 
             # --- 出力処理とスクリプト抽出 ---
@@ -469,3 +322,4 @@ if __name__ == "__main__":
         print(f"\nエラー: {e}")
     except Exception as e:
         print(f"\n予期せぬエラーが発生しました: {e}")
+

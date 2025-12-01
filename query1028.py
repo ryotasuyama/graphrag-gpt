@@ -1,10 +1,17 @@
 import sys, os, textwrap, config
+import argparse
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain_neo4j.chains.graph_qa.cypher import GraphCypherQAChain
+from langchain_chroma import Chroma
+
+# --- 更新箇所: モダンなChain構築用関数のインポート ---
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+
+# --- 更新箇所: ChatPromptTemplateのインポート ---
+from langchain_core.prompts import ChatPromptTemplate
+
 from langchain_neo4j import Neo4jGraph
-from langchain_core.prompts import PromptTemplate
+from langchain_neo4j.chains.graph_qa.cypher import GraphCypherQAChain
 from neo4j.exceptions import ClientError, CypherSyntaxError
 
 # ---------- 共通 LLM ----------
@@ -14,103 +21,97 @@ llm = ChatOpenAI(
     openai_api_key=config.OPENAI_API_KEY,
 )
 
-# ---------- Vector QA ----------
+# ---------- Vector QA (Modernized) ----------
 vectordb = Chroma(
     persist_directory="data/chroma_db",
     embedding_function=OpenAIEmbeddings(openai_api_key=config.OPENAI_API_KEY),
 )
-vector_qa = RetrievalQA.from_llm(
-    llm=llm,
-    retriever=vectordb.as_retriever(),
-    return_source_documents=False, # 回答のみを返すように設定
+
+# 1. 回答生成用のプロンプト (ChatPromptTemplate)
+# {context} は create_stuff_documents_chain によって自動的に注入されます
+vector_qa_system_prompt = (
+    "あなたは、CADアプリケーション「EvoShip」に関するエキスパートアシスタントです。"
+    "以下の取得されたコンテキストを使用して、質問に答えてください。"
+    "答えがわからない場合は、わからないと答えてください。"
+    "\n\n"
+    "{context}"
 )
 
-# ---------- Graph QA ----------
+vector_qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", vector_qa_system_prompt),
+    ("human", "{input}"),
+])
+
+# 2. ドキュメント結合チェーンの作成
+question_answer_chain = create_stuff_documents_chain(llm, vector_qa_prompt)
+
+# 3. リトリーバルチェーンの作成 (これが旧 RetrievalQA の代わりとなります)
+retriever = vectordb.as_retriever()
+vector_qa_chain = create_retrieval_chain(retriever, question_answer_chain)
+
+
+# ---------- Graph QA (Modernized Prompts) ----------
 graph = Neo4jGraph(
     url=config.NEO4J_URI,
     username=config.NEO4J_USER,
     password=config.NEO4J_PASSWORD,
 )
 
-CYPHER_GENERATION_TEMPLATE_JP = """
-    あなたは、CADアプリケーション「EvoShip」のAPIに関する知識グラフを熟知したエキスパートです。
-    ユーザーの質問を解釈し、提供されたグラフスキーマ情報に基づいて、その答えを見つけるための最適なCypherクエリを生成するタスクを担います。
+# Cypher生成用プロンプト (ChatPromptTemplate化)
+# Systemメッセージに役割とスキーマ情報を集約します
+CYPHER_GEN_SYSTEM_MSG = """
+あなたは、CADアプリケーション「EvoShip」のAPIに関する知識グラフを熟知したエキスパートです。
+ユーザーの質問を解釈し、提供されたグラフスキーマ情報に基づいて、その答えを見つけるための最適なCypherクエリを生成するタスクを担います。
 
-    ## グラフスキーマ情報
-    以下に、利用可能なノードラベル、プロパティ、およびリレーションシップタイプの情報を示します。クエリは**必ずこのスキーマ情報に厳密に従って**生成してください。
-    {schema}
+## グラフスキーマ情報
+以下に、利用可能なノードラベル、プロパティ、およびリレーションシップタイプの情報を示します。クエリは**必ずこのスキーマ情報に厳密に従って**生成してください。
+{schema}
 
-    ## クエリ生成の指示
-    1.  **思考プロセスに従う:** 以下の思考プロセスに従って、最適なクエリを段階的に構築してください。
-        -   **Step 1. 意図の理解:** ユーザーが「何を知りたいのか」「何をしたいのか」という根本的な意図を特定します。(例: APIの使い方を知りたい、サンプルコードが欲しい、概念を理解したい、既存コードを修正したい)
-        -   **Step 2. キーワード抽出:** 質問から重要なキーワード（API名、操作対象、目的、修正内容など）を抽出します。
-        -   **Step 3. スキーマとのマッピング:** 抽出したキーワードを**上記のグラフスキーマ情報**と照らし合わせます。検索の起点となるノードラベル (`Method`, `ScriptExample`等)、検索対象のプロパティ (`name`, `description`, `summary`等)、たどるべきリレーションシップタイプ (`IS_EXAMPLE_OF`, `HAS_PARAMETER`等) を慎重に選択します。スキーマに存在しない要素は絶対に使用しないでください。
-        -   **Step 4. クエリ生成:** 上記の考察に基づき、最終的なCypherクエリを生成します。キーワード検索には `toLower()` と `CONTAINS` を活用し、できるだけ多くの関連情報を取得できるよう努めてください。ヒットしない場合は、検索条件を緩和する（例：ANDをORにする、検索対象プロパティを増やす）ことも検討してください。
+## クエリ生成の指示
+1.  **思考プロセスに従う:**
+    -   **Step 1. 意図の理解:** ユーザーが「何を知りたいのか」を特定します。
+    -   **Step 2. キーワード抽出:** 質問から重要なキーワードを抽出します。
+    -   **Step 3. スキーマとのマッピング:** キーワードをスキーマ情報と照らし合わせます。
+    -   **Step 4. クエリ生成:** `toLower()` と `CONTAINS` を活用して検索します。
 
-    2.  **検索戦略のヒント:**
-        -   **「方法」「やり方」** に関する質問には、`Method`ノードの `description` や `ScriptExample`ノードの `summary` を検索するのが有効です。
-        -   **「サンプルコード」「実装例」** に関する質問には、`ScriptExample`ノードを起点とし、`IS_EXAMPLE_OF`リレーションで関連する`Method`を探します。`ScriptExample`ノードには`code`プロパティにコード全文が格納されています。
-        -   **概念や機能**に関する質問には、`Entity` ノードを検索するのが有効です。
-        -   質問に複数のキーワードが含まれる場合、それらが異なるノードのプロパティにマッチする可能性を考慮してください。例えば、「プレートを作成するAPIの引数」という質問では、「プレート」「作成」が`Method`や`ScriptExample`に、「引数」が`Parameter`ノードに関連する可能性があります。
+2.  **検索戦略のヒント:**
+    -   「方法」「やり方」 -> `Method`ノードの `description`
+    -   「サンプルコード」 -> `ScriptExample`ノード (`IS_EXAMPLE_OF`リレーション)
+    -   概念 -> `Entity` ノード
 
-    ## Few-shot Examples (質問とクエリの例)
-    -   **質問:** 「プレートを作成するサンプルコードはありますか？」
-    -   **Cypherクエリ:**
-        ```cypher
-        MATCH (s:ScriptExample)-[:IS_EXAMPLE_OF]->(m:Method)
-        WHERE (toLower(s.summary) CONTAINS 'プレート' AND toLower(s.summary) CONTAINS '作成')
-        OR (toLower(m.description) CONTAINS 'プレート' AND toLower(m.description) CONTAINS '作成')
-        RETURN s.name AS script_name, s.code AS script_code, s.summary AS script_summary
-        ```
-    -   **質問:** 「点群を扱うAPIには何がありますか？」
-    -   **Cypherクエリ:**
-        ```cypher
-        MATCH (m:Method)-[:HAS_PARAMETER|HAS_RETURNS]->(:Parameter|ReturnValue)-[:HAS_TYPE]->(t:DataType)
-        WHERE toLower(t.name) CONTAINS '点'
-        RETURN DISTINCT m.name AS method_name, m.description AS method_description
-        ```
+## 出力要件
+-   生成されたCypherクエリのみを**文字列としてそのまま出力してください。**
+-   説明、前置き、Markdownコードブロック(` ```cypher `)は含めないでください。
+"""
 
-    ## 出力要件
-    -   生成されたCypherクエリのみを、` ```cypher ... ``` ` のようなコードブロックなしで、**文字列としてそのまま出力してください。**
-    -   説明、前置き、括弧、謝罪は一切含めないでください。
-    -   **クエリは必ず `MATCH` や `RETURN` などのキーワードから開始してください。**
-    ---
-    **質問:** {question}
-    **Cypherクエリ:**
-    """
+cypher_generation_prompt = ChatPromptTemplate.from_messages([
+    ("system", CYPHER_GEN_SYSTEM_MSG),
+    ("human", "質問: {question}"),
+])
 
-CYPHER_GENERATION_PROMPT = PromptTemplate(
-    input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE_JP
-)
+# 回答生成用プロンプト (ChatPromptTemplate化)
+QA_SYSTEM_MSG = """
+あなたは、CADアプリケーション「EvoShip」に関するエキスパートアシスタントです。
+以下の情報を基に、ユーザーの質問に対して自然な日本語で分かりやすく回答してください。
 
-QA_TEMPLATE = """
-    あなたは、CADアプリケーション「EvoShip」に関するエキスパートアシスタントです。
-    あなたのタスクは、ユーザーの要求と、ナレッジグラフ（またはベクトル検索）から取得した情報を基に、最適な回答を生成することです。
+ナレッジグラフから取得した関連情報:
+{context}
+"""
 
-    ユーザーの要求:
-    {question}
+cypher_qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", QA_SYSTEM_MSG),
+    ("human", "ユーザーの要求: {question}"),
+])
 
-    ナレッジグラフ（またはベクトル検索）から取得した関連情報:
-    {context}
-
-    ## 回答生成の要件
-    - 取得した情報（{context}）を基に、ユーザーの質問（{question}）に対して**自然な日本語の文章で分かりやすく回答してください。**
-    - 取得した情報がCypherクエリの結果（例: `method_name`, `method_description`）である場合は、それを読みやすく整形して文章にまとめてください。
-    - 関連情報がない場合、または情報が不十分な場合は、その旨を伝えてください。
-    """
-
-QA_PROMPT = PromptTemplate(
-input_variables=["context", "question"], template=QA_TEMPLATE
-)
-
+# GraphQAチェーンの構築
 graph_qa = GraphCypherQAChain.from_llm(
-llm=llm,
-graph=graph,
-verbose=True,
-cypher_prompt=CYPHER_GENERATION_PROMPT,
-qa_prompt=QA_PROMPT,
-allow_dangerous_requests=True,
-top_k=10000,
+    llm=llm,
+    graph=graph,
+    verbose=True,
+    cypher_prompt=cypher_generation_prompt, # ChatPromptTemplateを渡す
+    qa_prompt=cypher_qa_prompt,             # ChatPromptTemplateを渡す
+    allow_dangerous_requests=True,
+    top_k=10000,
 )
 
 # ---------- ルート選択と実行 ----------
@@ -120,34 +121,27 @@ def execute_graph_qa(question: str, is_retry: bool = False):
     GraphCypherQAChainを実行し、エラーハンドリングとリトライを行う。
     """
     try:
-        # 1. Cypherクエリを生成し、グラフ検索を実行
+        # GraphCypherQAChainは従来通り "query" を受け付ける場合が多いが、
+        # プロンプト内の変数名に合わせて invoke する
         return graph_qa.invoke({"query": question})
     except (ClientError, CypherSyntaxError) as e:
-        # 2. Cypherの構文エラーなど、Neo4j起因のエラーをキャッチ
         print(f"\n--- [Error] An error occurred during graph query: {e} ---")
         
-        # 3. is_retryがTrueの場合（＝再試行に失敗した場合）は、例外を再発生させて処理を中断
         if is_retry:
             print("--- [Error] Retry failed. Raising exception. ---")
             raise e
 
-        # 4. LLMに対して、エラー内容を伝えて修正を促すための新しい質問を作成
         print("--- [Info] Attempting to fix the query by regenerating... ---")
         new_question = f"""
         以下のCypherクエリを実行したところ、Neo4jデータベースでエラーが発生しました。
-        このエラーは、LLMが生成したCypherクエリの構文やスキーマの不整合に起因する可能性が高いです。
+        エラーメッセージを参考に、正しいCypherクエリを再生成してください。
 
-        【エラーが発生したCypherクエリ】
+        【エラー内容】
         {e}
 
         【元の質問】
         {question}
-
-        【修正の指示】
-        上記のエラーメッセージを参考に、元の質問の意図を維持したまま、グラフスキーマに準拠した正しいCypherクエリを再生成してください。
-        特に、存在しないノードラベル、リレーションシップ、プロパティを使用していないか確認してください。
         """
-        # 5. is_retry=True を設定して、再度実行（無限ループを防止）
         return execute_graph_qa(new_question, is_retry=True)
 
 
@@ -165,28 +159,26 @@ def ask(question: str, route: str = "graph") -> str:
 
     elif route == "vector":
         print("--- [Route: vector] Running Vector Search ---")
-        print("Step 1/2: Retrieving context from vector store...")
-        retriever = vectordb.as_retriever()
-        docs = retriever.get_relevant_documents(question)
-
-        if docs:
-            retrieved_context_str = "\n\n".join([f"--- Document ---\n{doc.page_content}" for doc in docs])
-            print("\n--- Retrieved Context ---")
-            print(retrieved_context_str)
-            print("-------------------------\n")
-        else:
-            print("No relevant context found in vector store.")
-
-        print("Step 2/2: Generating answer based on context...")
-        result = vector_qa.invoke({"query": final_question})
-        return result['result']
+        # create_retrieval_chain は "input" をキーとして受け取ります
+        # 出力は "answer" キーに含まれます ("result" ではありません)
+        response = vector_qa_chain.invoke({"input": final_question})
+        
+        # コンテキストの確認用出力（デバッグ用）
+        if 'context' in response:
+             print("\n--- Retrieved Context ---")
+             for doc in response['context']:
+                 print(f"--- Document ---\n{doc.page_content[:200]}...") # 長すぎるので省略表示
+             print("-------------------------\n")
+             
+        return response['answer']
 
     elif route == "hybrid":
         print("--- [Route: hybrid] Running Hybrid Search (Vector -> Graph) ---")
         
         print("Step 1/3: Retrieving context from vector store using the question...")
+        # ハイブリッド検索の前処理として、ベクトル検索だけを手動で行う（ここはChainを使わなくて良い）
         retriever = vectordb.as_retriever()
-        docs = retriever.get_relevant_documents(question)
+        docs = retriever.invoke(question) # get_relevant_documents は invoke に統一されました
         
         if docs:
             retrieved_context_str = "\n\n".join([f"--- Document ---\n{doc.page_content}" for doc in docs])
@@ -207,7 +199,8 @@ def ask(question: str, route: str = "graph") -> str:
 以下の【ベクトル検索で得られた関連情報】を最優先の参考情報として活用し、元の質問に答えてください。
 この情報は、グラフ検索でどのノードやリレーションシップに着目すべきかの重要なヒントとなります。
 
-## 【ベクトル検索で得られた関連情報】 {vector_context}
+## 【ベクトル検索で得られた関連情報】
+{vector_context}
 
 【元の質問】
 {question}
@@ -219,42 +212,20 @@ def ask(question: str, route: str = "graph") -> str:
     else:
         raise ValueError("route は 'vector', 'graph', 'hybrid' のみ指定できます。")
 
-# \---------- CLI 入口 ----------
+# ---------- CLI 入口 ----------
 
 if __name__ == "__main__":
-    import argparse
-
-    # --- 引数パーサーの設定 ---
     parser = argparse.ArgumentParser(
         description="Ask questions about the EvoShip API.",
-        formatter_class=argparse.RawTextHelpFormatter,
-        epilog=textwrap.dedent("""
-Usage examples:
-  python query1028.py "プレートを作成する方法は？"
-  python query1028.py "点群を扱うAPIについて教えて" vector
-  python query1028.py "CreatePlate のサンプルコードが見たい" hybrid
-""")
+        formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument(
-        "question", 
-        help="The question to ask in quotes."
-    )
-    parser.add_argument(
-        "route", 
-        nargs='?', 
-        default="graph", 
-        choices=['vector', 'graph', 'hybrid'],
-        help="The search route to use. Defaults to 'graph'."
-    )
+    parser.add_argument("question", help="The question to ask in quotes.")
+    parser.add_argument("route", nargs='?', default="graph", choices=['vector', 'graph', 'hybrid'], help="The search route.")
     
     args = parser.parse_args()
 
-    question = args.question
-    route = args.route
-
-    # --- 実行 ---
     try:
-        answer = ask(question, route)
+        answer = ask(args.question, args.route)
         print("\n--- Generated Answer ---")
         print(answer)
 
