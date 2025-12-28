@@ -10,26 +10,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
-# --- ▼▼▼ インポート修正 ▼▼▼ ---
-# import os # config.py を使うため os.environ は不要
 import time
 import functools
-# from dotenv import load_dotenv # config.py を使うため dotenv は不要
-import config # ★ config.py をインポート
+import config 
 try:
     import openai
 except ImportError:
     print("OpenAIライブラリが必要です。 'pip install openai' を実行してください。", file=sys.stderr)
     sys.exit(1)
-# --- ▲▲▲ インポート修正 ▲▲▲ ---
 
-
-# .envファイルから環境変数を読み込む
-# load_dotenv() # config.py を使うため不要
-
-
-# --- ▼▼▼ 修正 (OpenAI クライアントのセットアップ) ▼▼▼ ---
-# config.py からキーを読み込む
 OPENAI_API_KEY = getattr(config, "OPENAI_API_KEY", None)
 
 if not OPENAI_API_KEY:
@@ -173,10 +162,37 @@ def normalize_whitespace(value: Optional[str]) -> Optional[str]:
     return normalized or None
 
 
+def normalize_to_fullwidth(value: Optional[str]) -> Optional[str]:
+    """
+    半角文字を全角文字に変換する
+    英数字、記号、空白を全角に統一
+    """
+    if value is None:
+        return None
+    
+    # まず空白を正規化
+    normalized = normalize_whitespace(value)
+    if not normalized:
+        return None
+    
+    # 半角→全角変換テーブルを作成
+    # 英数字と記号を全角に変換
+    trans_table = str.maketrans(
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+        ' !"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~',
+        '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ'
+        'ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ'
+        '　！＂＃＄％＆＇（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～'
+    )
+    
+    return normalized.translate(trans_table) or None
+
+
 def normalize_category(section: Optional[str]) -> Optional[str]:
     section = normalize_whitespace(section)
     if not section:
         return None
+    section = normalize_to_fullwidth(section)  # 全角変換を追加
     suffixes = ["のメソッド", "のプロパティ", "のイベント", "の属性", "のパラメータ"]
     for suffix in suffixes:
         if section.endswith(suffix):
@@ -190,6 +206,7 @@ def extract_return_fields(text: Optional[str]) -> Tuple[Optional[str], Optional[
     if not text:
         return None, None
     cleaned = re.sub(r"^返り値[:：]\s*", "", text)
+    cleaned = normalize_to_fullwidth(cleaned)  # 全角変換を追加
     return cleaned or None, cleaned or None
 
 
@@ -197,6 +214,7 @@ def split_type_and_description(text: Optional[str]) -> Tuple[str, str]:
     normalized = normalize_whitespace(text) or ""
     if not normalized:
         return "", ""
+    normalized = normalize_to_fullwidth(normalized)  # 全角変換を追加
     parts = re.split(r"[:：]", normalized, maxsplit=1)
     if len(parts) == 1:
         return parts[0].strip(), ""
@@ -239,7 +257,7 @@ def parse_xml_template(path: Path) -> Dict[str, XmlEntry]:
                 description_val = None
                 desc_tag = type_def_element.find("description")
                 if desc_tag is not None:
-                    description_val = normalize_whitespace(desc_tag.text)
+                    description_val = normalize_to_fullwidth(normalize_whitespace(desc_tag.text))
                     
                 # XmlEntry を作成
                 entries[name_attr] = XmlEntry(
@@ -270,14 +288,14 @@ def parse_xml_template(path: Path) -> Dict[str, XmlEntry]:
 
             for child in element:
                 if child.tag == "title":
-                    title_jp_val = normalize_whitespace(child.text)
+                    title_jp_val = normalize_to_fullwidth(normalize_whitespace(child.text))
                 elif child.tag == "return":
                     raw_return_val, return_desc_val = extract_return_fields(child.text)
                 elif child.tag in {"parameters", "attributes"}:
                     for param in child:
                         if param.tag != "parameter":
                             continue
-                        param_name = normalize_whitespace(param.get("name") or "") or ""
+                        param_name = normalize_to_fullwidth(normalize_whitespace(param.get("name") or "") or "")
                         type_name, description = split_type_and_description(param.text)
                         key = build_parameter_key(param_name, len(params_list))
                         params_list.append(
@@ -340,7 +358,7 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
         entry = JsonEntry(
             name=method_name,
             entry_type='function',
-            title_jp=method_props.get('description')
+            title_jp=normalize_to_fullwidth(method_props.get('description'))
         )
 
         # 'source' が名前 (node_name) のリレーションを取得
@@ -357,17 +375,17 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
             target_props = target_node.get('properties', {})
 
             if rel_type == 'BELONGS_TO':
-                entry.object_name = target_props.get('name')
+                entry.object_name = normalize_to_fullwidth(target_props.get('name'))
                 entry.category = entry.object_name
             
             elif rel_type == 'HAS_RETURNS':
-                entry.return_description = normalize_whitespace(target_props.get('description'))
+                entry.return_description = normalize_to_fullwidth(normalize_whitespace(target_props.get('description')))
                 entry.raw_return = entry.return_description
 
             elif rel_type == 'HAS_PARAMETER':
                 # target_node は Parameter ノード
-                param_name = target_props.get('name', '')
-                param_desc = target_props.get('description', '')
+                param_name = normalize_to_fullwidth(target_props.get('name', ''))
+                param_desc = normalize_to_fullwidth(target_props.get('description', ''))
                 param_order = target_props.get('order', 999)
                 param_type = "不明"
 
@@ -379,7 +397,7 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
                         type_node_name = param_rel.get('target')
                         type_node = nodes.get(type_node_name) # 名前で引く
                         if type_node:
-                            param_type = type_node.get('properties', {}).get('name', "不明")
+                            param_type = normalize_to_fullwidth(type_node.get('properties', {}).get('name', "不明"))
                         break
                 
                 entry.params.append(JsonParameter(
@@ -421,7 +439,7 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
             entry = JsonEntry(
                 name=dt_name,
                 entry_type='parameter_object',
-                title_jp=dt_name, # XMLのtitleとJSONのnameが一致すると仮定
+                title_jp=normalize_to_fullwidth(dt_name), # XMLのtitleとJSONのnameが一致すると仮定
                 params=[]
             )
             
@@ -434,8 +452,8 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
                     continue
                     
                 attr_props = attr_node.get('properties', {})
-                attr_param_name = attr_props.get('name', '') # Attribute の 'name' プロパティ
-                attr_desc = attr_props.get('description', '')
+                attr_param_name = normalize_to_fullwidth(attr_props.get('name', '')) # Attribute の 'name' プロパティ
+                attr_desc = normalize_to_fullwidth(attr_props.get('description', ''))
                 attr_type = "不明"
 
                 # 属性の型 (HAS_TYPE) を探す
@@ -447,7 +465,7 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
                         type_node_name = type_rel.get('target')
                         type_node = nodes.get(type_node_name) # 名前で引く
                         if type_node:
-                            attr_type = type_node.get('properties', {}).get('name', "不明")
+                            attr_type = normalize_to_fullwidth(type_node.get('properties', {}).get('name', "不明"))
                         break
                 
                 entry.params.append(JsonParameter(
@@ -467,7 +485,7 @@ def parse_neo4j_json(path: Path) -> Dict[str, JsonEntry]:
             json_entries[dt_name] = JsonEntry(
                 name=dt_name,
                 entry_type='type_definition',
-                title_jp=normalize_whitespace(dt_props.get('description')), # description を title_jp として格納
+                title_jp=normalize_to_fullwidth(normalize_whitespace(dt_props.get('description'))), # description を title_jp として格納
                 params=[] # 型定義にパラメータはない
             )
 

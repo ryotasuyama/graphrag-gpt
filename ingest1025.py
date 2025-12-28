@@ -37,11 +37,10 @@ OPENAI_API_KEY = config.OPENAI_API_KEY
 
 llm = ChatOpenAI(
     temperature=0, 
-    model_name="gpt-5", 
+    model_name="gpt-5.2", 
     openai_api_key=OPENAI_API_KEY,
     # request_timeout=600
 ) 
-
 
 def _read_api_arg_text() -> str:
     """api_arg.txt を候補パスから読み込む"""
@@ -153,7 +152,6 @@ def extract_triples_from_script(
         })
 
     return triples, node_props
-
 
 def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str, Any]]]:
     """LLMを使ってAPI仕様書の生テキストからノードとリレーションを抽出する"""
@@ -642,7 +640,7 @@ def _build_and_load_neo4j() -> Tuple[List[GraphDocument], List[Dict[str, Any]], 
 def main() -> None:
     # --- Neo4j構築プロセス ---
     # Neo4jを構築し、その過程で生成された生のtriplesとnode_propsも受け取る
-    gdocs, all_triples, all_node_props = _build_and_load_neo4j()
+    _, all_triples, all_node_props = _build_and_load_neo4j()
 
     # --- ChromaDB構築プロセス ---
     # gdocsではなく、生のtriplesとnode_propsを渡してChromaDBを構築する
