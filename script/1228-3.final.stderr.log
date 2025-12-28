@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "C:\Users\fsryo\graphrag-gpt\script\1228-3.py", line 3433, in <module>
+    profile110 = part.CreateProfile(ProfilePram110,False)
+  File "<COMObject GetPart>", line 2, in CreateProfile
+  File "C:\Users\fsryo\graphrag-gpt\venv\Lib\site-packages\win32com\client\dynamic.py", line 356, in _ApplyTypes_
+    result = self._oleobj_.InvokeTypes(
+        *(dispid, LCID, wFlags, retType, argTypes) + args
+    )
+pywintypes.com_error: (-2147352567, '例外が発生しました。', (0, None, None, None, 0, -2147467259), None)

@@ -1,6 +1,6 @@
 .env
 __pycache__/
-data/chroma_db
+./data/chroma_db/
 chroma/
 data_copy/
 config.py

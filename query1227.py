@@ -4,19 +4,17 @@
 [参考スクリプトの指定]
     python query1227.py ./script/sample_no_bracket.py "ブラケットをつけてください。" --reference ./script/samplename.py -o ./script/1225-1.py
 
-[出力先の指定]
-    python query1225.py <ファイルパス> "<編集指示>" -o ./output/result.py
-
-[デフォルトの動作]
-- 検索方法はグラフ検索のみです。
-    例: python query1225.py <ファイルパス> "<編集指示>"
-- 出力先を指定しない場合は、標準出力に結果が表示されます。
 """
-import sys, os, textwrap, config, re, subprocess, json
-# --- [変更点] 必要なモジュールを更新 ---
+import sys
+import os
+import textwrap
+import config
+import re
+import subprocess
+from typing import Optional, Tuple
+
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
-# RetrievalQA は削除し、新しいチェーン作成関数をインポート
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
@@ -24,6 +22,31 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_neo4j import Neo4jGraph, GraphCypherQAChain
 from langchain_core.prompts import PromptTemplate
 from neo4j.exceptions import ClientError, CypherSyntaxError
+
+# ========== 定数定義 ==========
+MAX_BRACKET_SEARCH_LINES = 200  # ブラケットパラメータ定義の探索範囲
+CONTEXT_EXTRACTION_LINES = 100  # コンテキスト抽出の範囲
+GRAPH_SEARCH_TOP_K = 10000      # グラフ検索の最大結果数
+DEFAULT_TIMEOUT_SEC = 60         # デフォルトのタイムアウト秒数
+DEFAULT_MAX_RETRIES = 3          # デフォルトの最大再試行回数
+
+# 正規表現パターンの定数化
+BRACKET_PARAM_PATTERN = r'(bracketPram\w+|bracketParam\w+)'
+PYTHON_CODE_BLOCK_PATTERN = r"```python\n(.*?)```"
+BRACKET_DEFINITION_PATTERN = r'(bracketPram\w+\s*=\s*part\.CreateBracketParam\(\)[^\n]*\n(?:[^\n]*\n)*?bracket\w+\s*=\s*part\.CreateBracket\([^\n]+\))'
+
+# ========== カスタム例外クラス ==========
+class ScriptExecutionError(Exception):
+    """スクリプト実行エラー"""
+    pass
+
+class ScriptGenerationError(Exception):
+    """スクリプト生成エラー"""
+    pass
+
+class FileOperationError(Exception):
+    """ファイル操作エラー"""
+    pass
 
 # ---------- 共通 LLM ----------
 llm = ChatOpenAI(
@@ -54,10 +77,8 @@ qa_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-# 2. ドキュメント結合チェーン (Stuff chain) の作成
 question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-# 3. 検索チェーン (Retrieval chain) の作成
 vector_qa_chain = create_retrieval_chain(vectordb.as_retriever(), question_answer_chain)
 # -----------------------------------------------
 
@@ -70,45 +91,26 @@ graph = Neo4jGraph(
 
 CYPHER_GENERATION_TEMPLATE_JP = """
     あなたは、CADアプリケーション「EvoShip」のAPIに関する知識グラフを熟知したエキスパートです。
-    ユーザーの質問を解釈し、提供されたグラフスキーマ情報に基づいて、その答えを見つけるための最適なCypherクエリを生成するタスクを担います。
+    ユーザーの質問を解釈し、提供されたグラフスキーマ情報に基づいて、その答えを見つけるための最適なCypherクエリを生成してください。
 
     ## グラフスキーマ情報
-    以下に、利用可能なノードラベル、プロパティ、およびリレーションシップタイプの情報を示します。クエリは**必ずこのスキーマ情報に厳密に従って**生成してください。
     {schema}
 
     ## クエリ生成の指示
-    1.  **思考プロセスに従う:** 以下の思考プロセスに従って、最適なクエリを段階的に構築してください。
-        -   **Step 1. 意図の理解:** ユーザーが「何を知りたいのか」「何をしたいのか」という根本的な意図を特定します。(例: APIの使い方を知りたい、サンプルコードが欲しい、概念を理解したい、既存コードを修正したい)
-        -   **Step 2. キーワード抽出:** 質問から重要なキーワード（API名、操作対象、目的、修正内容など）を抽出します。
-        -   **Step 3. スキーマとのマッピング:** 抽出したキーワードを**上記のグラフスキーマ情報**と照らし合わせます。検索の起点となるノードラベル (`Method`, `ScriptExample`等)、検索対象のプロパティ (`name`, `description`, `summary`等)、たどるべきリレーションシップタイプ (`IS_EXAMPLE_OF`, `HAS_PARAMETER`等) を慎重に選択します。スキーマに存在しない要素は絶対に使用しないでください。
-        -   **Step 4. クエリ生成:** 上記の考察に基づき、最終的なCypherクエリを生成します。キーワード検索には `toLower()` と `CONTAINS` を活用し、できるだけ多くの関連情報を取得できるよう努めてください。ヒットしない場合は、検索条件を緩和する（例：ANDをORにする、検索対象プロパティを増やす）ことも検討してください。
+    1.  **思考プロセスに従う:**
+        - **Step 1. 意図の理解:** ユーザーが何をしたいのか特定する。
+        - **Step 2. スキーマとのマッピング:** 検索の起点となるノードとリレーションを選択する。
+        - **Step 3. 構文の安全性の確保:** **重要：collect() 内でさらに collect() を使用するような、集計関数のネストは絶対に避けてください。** 複雑な構造が必要な場合は、WITH 句を使ってデータをフラットに処理してから次のステップに進んでください。
 
     2.  **検索戦略のヒント:**
-        -   **「方法」「やり方」** に関する質問には、`Method`ノードの `description` や `ScriptExample`ノードの `summary` を検索するのが有効です。
-        -   **「サンプルコード」「実装例」** に関する質問には、`ScriptExample`ノードを起点とし、`IS_EXAMPLE_OF`リレーションで関連する`Method`を探します。`ScriptExample`ノードには`code`プロパティにコード全文が格納されています。
-        -   **概念や機能**に関する質問には、`Entity` ノードを検索するのが有効です。
-        -   質問に複数のキーワードが含まれる場合、それらが異なるノードのプロパティにマッチする可能性を考慮してください。例えば、「プレートを作成するAPIの引数」という質問では、「プレート」「作成」が`Method`や`ScriptExample`に、「引数」が`Parameter`ノードに関連する可能性があります。
+        - APIの引数や属性を取得したい場合は、結果を RETURN する際に複雑な MAP 構造を作りすぎないようにしてください。
+        - キーワード検索には toLower() と CONTAINS を活用してください。
 
-    ## Few-shot Examples (質問とクエリの例)
-    -   **質問:** 「プレートを作成するサンプルコードはありますか？」
-    -   **Cypherクエリ:**
-        ```cypher
-        MATCH (s:ScriptExample)-[:IS_EXAMPLE_OF]->(m:Method)
-        WHERE (toLower(s.summary) CONTAINS 'プレート' AND toLower(s.summary) CONTAINS '作成')
-        OR (toLower(m.description) CONTAINS 'プレート' AND toLower(m.description) CONTAINS '作成')
-        RETURN s.name AS script_name, s.code AS script_code, s.summary AS script_summary
-        ```
-    -   **質問:** 「点群を扱うAPIには何がありますか？」
-    -   **Cypherクエリ:**
-        ```cypher
-        MATCH (m:Method)-[:HAS_PARAMETER|HAS_RETURNS]->(:Parameter|ReturnValue)-[:HAS_TYPE]->(t:DataType)
-        WHERE toLower(t.name) CONTAINS '点'
-        RETURN DISTINCT m.name AS method_name, m.description AS method_description
-        ```
     ## 出力要件
-    -   生成されたCypherクエリのみを、` ```cypher ... ``` ` のようなコードブロックなしで、**文字列としてそのまま出力してください。**
-    -   説明、前置き、括弧、謝罪は一切含めないでください。
-    -   **クエリは必ず `MATCH` や `RETURN` などのキーワードから開始してください。**
+    - **【最重要】「collect(DISTINCT {{ ..., attrs: collect(...) }})」のような、集計関数の入れ子は禁止です。**
+    - 生成されたCypherクエリのみを、コードブロックなしで文字列として出力してください。
+    - 説明、前置き、謝罪は一切含めないでください。
+    - クエリは必ず MATCH や RETURN などのキーワードから開始してください。
     ---
     **質問:** {question}
     **Cypherクエリ:**
@@ -188,6 +190,12 @@ QA_TEMPLATE = """
     - APIの戻り値が None の可能性がある場合は、参考スクリプトの流儀に合わせてガードする。
     - BracketType / 各フィールドは "参考スクリプトまたはナレッジグラフのサンプル" で確認できる値を最優先し、未知のフィールドを勝手に追加しない。
 
+    ### 6) 表示状態（Blank）の規約（必ず守る）
+    - `part.CreateBracket(bracketParam, <flag>)` の第2引数は **必ず False** にする（True は作成時に非表示/Blankになるため禁止）。
+    - ブラケット作成後に `part.BlankElement(bracketX, True)` を **入れない**（ブラケットが見えなくなる）。
+    - もし何らかの理由で Blank 操作が必要な場合でも、ブラケットは表示が既定なので **`part.BlankElement(bracketX, False)` のみ許可**。
+    - 出力前の自己点検として、生成したコード内の全 `CreateBracket` 呼び出しを確認し、(1) 第2引数が False、(2) ブラケット変数に対する `BlankElement(..., True)` が存在しないことを満たすように修正してから出力する。
+
     ## スクリプト生成の要件
     - **元のスクリプトを基に編集・修正を行ってください。**
     - **「参考スクリプト」が提供されている場合は、その構造、APIの使用方法、コーディングスタイルを参考にしながらスクリプトを編集してください。**
@@ -215,84 +223,89 @@ QA_TEMPLATE = """
     """
 
 QA_PROMPT = PromptTemplate(
-input_variables=["context", "question"], template=QA_TEMPLATE
+    input_variables=["context", "question"], template=QA_TEMPLATE
 )
 
 # ---------- ブラケットパラメータ特化の修正プロンプト ----------
 BRACKET_FIX_TEMPLATE = """
-あなたは、CADアプリケーション「EvoShip」のブラケット生成コードを修正するエキスパートです。
-以下のPythonスクリプトを実行したところ、CreateBracket呼び出しでCOM例外が発生しました。
-エラー情報を分析し、**最小限の変更で**ブラケットパラメータを修正した完全なPythonスクリプトを生成してください。
+    あなたは、CADアプリケーション「EvoShip」のブラケット生成コードを修正するエキスパートです。
+    以下のPythonスクリプトを実行したところ、CreateBracket呼び出しでCOM例外が発生しました。
+    エラー情報を分析し、**最小限の変更で**ブラケットパラメータを修正した完全なPythonスクリプトを生成してください。
 
-## 重要：最小変更ポリシー（必ず守る）
-- **変更対象は「エラー行の CreateBracket に渡している bracketParam の定義と、それに直結する補助変数」だけです。**
-- それ以外のコード（生成された形状、部材生成順序、他のブラケット）は **原則そのまま**にしてください。
-- どうしても周辺の参照（faces の取り方等）を直す必要がある場合でも、変更は **エラー行の前後ブロック内に限定**してください。
-- 出力は **完成した全スクリプト**（省略なし、` ```python ... ``` ` で囲む）のみです。
+    ## 重要：最小変更ポリシー（必ず守る）
+    - **変更対象は「エラー行の CreateBracket に渡している bracketParam の定義と、それに直結する補助変数」だけです。**
+    - それ以外のコード（生成された形状、部材生成順序、他のブラケット）は **原則そのまま**にしてください。
+    - どうしても周辺の参照（faces の取り方等）を直す必要がある場合でも、変更は **エラー行の前後ブロック内に限定**してください。
+    - 出力は **完成した全スクリプト**（省略なし、` ```python ... ``` ` で囲む）のみです。
 
-## エラー情報（Traceback）
-{error_traceback}
+    ## エラー情報（Traceback）
+    {error_traceback}
 
-## 失敗行とその周辺コンテキスト
-失敗行（行{error_line_number}）:
-```python
-{error_line}
-```
+    ## 失敗行とその周辺コンテキスト
+    失敗行（行{error_line_number}）:
+    ```python
+    {error_line}
+    ```
 
-前後のコンテキスト（前{context_lines}行）:
-```python
-{context_before}
-{error_line}
-{context_after}
-```
+    前後のコンテキスト（前{context_lines}行）:
+    ```python
+    {context_before}
+    {error_line}
+    {context_after}
+    ```
 
-## 対象ブラケットパラメータの定義
-{bracket_param_section}
+    ## 対象ブラケットパラメータの定義
+    {bracket_param_section}
 
-## ブラケット修正のチェックリスト（以下を順に確認して修正）
-以下の観点を順に確認し、問題があれば修正してください：
+    ## ブラケット修正のチェックリスト（以下を順に確認して修正）
+    以下の観点を順に確認し、問題があれば修正してください：
 
-1. **Surfaces1 / Surfaces2 の妥当性**
-   - 参照している面が None/未生成/型不一致になっていないか
-   - 面ペア順序（PLS↔FL 等）が参考スクリプトと整合するか
-   - 面の参照形式が正しいか（例: `profileXX[0]+",FL"` または `["PLS", ..., solidX]`）
+    0. **表示状態（Blank）の確認（例外がなくても重要）**
+    - `part.CreateBracket(bracketParam, True)` になっている場合は **必ず False に修正**する。
+    - ブラケット作成直後（または近傍）に `part.BlankElement(bracketX, True)` がある場合は **削除**する（または `False` に変更）。
+    - 参考スクリプトの規約：ブラケットは作成時に表示が基本（CreateBracket第2引数 False）。
 
-2. **BaseElement の妥当性**
-   - 原則 `profileXX[0]`（Profile本体）を使う、solid を渡していないか
-   - BaseElement が正しく定義されているか
+    1. **Surfaces1 / Surfaces2 の妥当性**
+    - 参照している面が None/未生成/型不一致になっていないか
+    - 面ペア順序（PLS↔FL 等）が参考スクリプトと整合するか
+    - 面の参照形式が正しいか（例: `profileXX[0]+",FL"` または `["PLS", ..., solidX]`）
 
-3. **End1/End2 と EndElements**
-   - `AddEnd1Elements/AddEnd2Elements` に対応する要素が欠けていないか
-   - Sf1EndElements / Sf2EndElements が必要な型で設定されているか
+    2. **BaseElement の妥当性**
+    - 原則 `profileXX[0]`（Profile本体）を使う、solid を渡していないか
+    - BaseElement が正しく定義されているか
 
-4. **BracketType とフィールドの整合**
-   - 参考スクリプトに存在する `BracketType` / `Sf1EndElements` / `Sf2EndElements` を勝手に増減しない
-   - 型により必須フィールドが違う可能性があるため、参考スクリプトで同型を優先
+    3. **End1/End2 と EndElements**
+    - `AddEnd1Elements/AddEnd2Elements` に対応する要素が欠けていないか
+    - Sf1EndElements / Sf2EndElements が必要な型で設定されているか
 
-5. **寸法の符号・範囲**
-   - Height/Width/Thickness が 0 以下になっていないか
-   - 板厚に対して極端に大きすぎ/小さすぎの値になっていないか（可能なら参照部材寸法から再計算）
+    4. **BracketType とフィールドの整合**
+    - 参考スクリプトに存在する `BracketType` / `Sf1EndElements` / `Sf2EndElements` を勝手に増減しない
+    - 型により必須フィールドが違う可能性があるため、参考スクリプトで同型を優先
 
-6. **向き（Orientation/Vector）が必要な型の場合**
-   - 参照面の法線に対して不正な向きになっていないか
-   - 参考スクリプトに合わせた規約（例えば FL を基準にする等）を踏襲
+    5. **寸法の符号・範囲**
+    - Height/Width/Thickness が 0 以下になっていないか
+    - 板厚に対して極端に大きすぎ/小さすぎの値になっていないか（可能なら参照部材寸法から再計算）
 
-## 参考スクリプト（該当する CreateBracket 例）
-{reference_snippet}
+    6. **向き（Orientation/Vector）が必要な型の場合**
+    - 参照面の法線に対して不正な向きになっていないか
+    - 参考スクリプトに合わせた規約（例えば FL を基準にする等）を踏襲
 
-## 元のスクリプト全体
-```python
-{full_code}
-```
+    ## 参考スクリプト（該当する CreateBracket 例）
+    {reference_snippet}
 
-## 出力形式
-修正後の完全なPythonスクリプトのみを以下の形式で出力してください。説明やコメントは不要です。
+    ## 元のスクリプト全体
+    ```python
+    {full_code}
+    ```
 
-```python
-# 修正後の完全なスクリプト（省略なし）
-```
+    ## 出力形式
+    修正後の完全なPythonスクリプトのみを以下の形式で出力してください。説明やコメントは不要です。
 
-"""
+    ```python
+    # 修正後の完全なスクリプト（省略なし）
+    ```
+
+    """
 
 BRACKET_FIX_PROMPT = PromptTemplate(
     input_variables=[
@@ -316,12 +329,12 @@ graph_qa = GraphCypherQAChain.from_llm(
     cypher_prompt=CYPHER_GENERATION_PROMPT,
     qa_prompt=QA_PROMPT,
     allow_dangerous_requests=True,
-    top_k=10000,
+    top_k=GRAPH_SEARCH_TOP_K,
 )
 
 
 
-def run_script(script_path: str, timeout_sec: int = 60) -> tuple[bool, str, str, int]:
+def run_script(script_path: str, timeout_sec: int = DEFAULT_TIMEOUT_SEC) -> Tuple[bool, str, str, int]:
     """
     スクリプトを実行し、成功したかどうかと出力を返します。
     
@@ -346,9 +359,14 @@ def run_script(script_path: str, timeout_sec: int = 60) -> tuple[bool, str, str,
         else:
             return False, result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired:
-        return False, "", f"Error: Script execution timed out after {timeout_sec} seconds.", -1
+        error_msg = f"Script execution timed out after {timeout_sec} seconds."
+        return False, "", error_msg, -1
+    except FileNotFoundError:
+        error_msg = f"Python interpreter not found: {sys.executable}"
+        return False, "", error_msg, -1
     except Exception as e:
-        return False, "", f"Error executing script: {str(e)}", -1
+        error_msg = f"Error executing script: {str(e)}"
+        return False, "", error_msg, -1
 
 
 def parse_traceback(stderr: str) -> dict:
@@ -445,7 +463,7 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
     result['context_after'] = '\n'.join(lines[idx+1:end_idx])
     
     # bracketParam変数名の抽出（例: bracketPramC1, bracketParam1）
-    bracket_param_match = re.search(r'(bracketPram\w+|bracketParam\w+)', result['error_line'])
+    bracket_param_match = re.search(BRACKET_PARAM_PATTERN, result['error_line'])
     if bracket_param_match:
         result['bracket_param_name'] = bracket_param_match.group(1)
         
@@ -455,7 +473,7 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
         definition_pattern = rf'{re.escape(param_name)}\s*=\s*part\.CreateBracketParam\(\)'
         
         # 定義行を探す（失敗行より前を探索）
-        for i in range(idx - 1, max(0, idx - 200), -1):
+        for i in range(idx - 1, max(0, idx - MAX_BRACKET_SEARCH_LINES), -1):
             if re.search(definition_pattern, lines[i]):
                 # 定義が見つかったら、そこから失敗行までのブロックを抽出
                 definition_start = i
@@ -464,7 +482,7 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
                 break
         
         # 関連変数（profileXX, solidX, faces等）を抽出
-        context_block = '\n'.join(lines[max(0, idx - 100):idx])
+        context_block = '\n'.join(lines[max(0, idx - CONTEXT_EXTRACTION_LINES):idx])
         var_patterns = [
             r'profile\d+',
             r'solid\d+',
@@ -481,9 +499,21 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
     return result
 
 
-def execute_graph_qa(question: str, is_retry: bool = False):
+def execute_graph_qa(question: str, is_retry: bool = False) -> dict:
     """
     GraphCypherQAChainを実行し、エラーハンドリングとリトライを行う。
+    
+    Args:
+        question: 質問文字列
+        is_retry: 再試行フラグ
+    
+    Returns:
+        GraphCypherQAChainの実行結果（辞書）
+    
+    Raises:
+        ClientError: Neo4jクライアントエラー
+        CypherSyntaxError: Cypher構文エラー
+        Exception: その他の予期せぬエラー
     """
     try:
         return graph_qa.invoke({"query": question})
@@ -511,7 +541,7 @@ def execute_graph_qa(question: str, is_retry: bool = False):
         print(f"\n--- [Error] 予期せぬエラーが発生しました: {e} ---")
         raise e
 
-def ask(question: str, original_code: str = None, reference_code: str = None) -> str:
+def ask(question: str, original_code: str, reference_code: Optional[str] = None) -> str:
     """
     グラフ検索を使用して質問に回答します。
     original_codeは必須です。それを編集するタスクとして扱います。
@@ -583,70 +613,331 @@ def fix_bracket_code(
     stderr: str,
     error_line_info: dict,
     bracket_context: dict,
-    reference_code: str = None
-) -> str:
+    reference_code: Optional[str] = None
+    ) -> str:
+        """
+        ブラケットパラメータ特化の修正をLLMに依頼します。
+        
+        Args:
+            full_code: スクリプト全体のコード
+            stderr: エラー出力
+            error_line_info: parse_traceback()の結果
+            bracket_context: extract_bracket_failure_context()の結果
+            reference_code: 参考スクリプト（オプション）
+        
+        Returns:
+            修正後のスクリプトコード
+        """
+        print("--- Requesting bracket-specific fix from LLM ---")
+        
+        # 参考スクリプトから該当するCreateBracket例を抽出（簡易版）
+        reference_snippet = ""
+        if reference_code:
+            # bracketParam定義とCreateBracket呼び出しのブロックを抽出
+            matches = re.findall(BRACKET_DEFINITION_PATTERN, reference_code, re.MULTILINE)
+            if matches:
+                # 最初の2-3個の例を参考として使用
+                reference_snippet = '\n\n'.join(matches[:3])
+        
+        if not reference_snippet:
+            reference_snippet = "# 参考スクリプトが提供されていないか、該当例が見つかりませんでした。"
+        
+        # bracket_param_sectionの準備
+        bracket_param_section = bracket_context.get('bracket_param_definition', '')
+        if not bracket_param_section:
+            bracket_param_section = f"# ブラケットパラメータ '{bracket_context.get('bracket_param_name', 'unknown')}' の定義が見つかりませんでした。\n# エラー行: {bracket_context.get('error_line', '')}"
+        
+        # プロンプトの準備
+        prompt_vars = {
+            "error_traceback": stderr,
+            "error_line_number": error_line_info.get('line_number', 'unknown'),
+            "error_line": bracket_context.get('error_line', ''),
+            "context_before": bracket_context.get('context_before', ''),
+            "context_after": bracket_context.get('context_after', ''),
+            "context_lines": 50,
+            "bracket_param_section": bracket_param_section,
+            "reference_snippet": reference_snippet,
+            "full_code": full_code
+        }
+        
+        prompt = BRACKET_FIX_PROMPT.format(**prompt_vars)
+        response = llm.invoke(prompt)
+        
+        # スクリプトコードを抽出
+        script_match = re.search(PYTHON_CODE_BLOCK_PATTERN, response.content, re.DOTALL)
+        if script_match:
+            return script_match.group(1).strip()
+        else:
+            # コードブロックがない場合はそのまま返す（LLMが直接コードを返した場合）
+            return response.content.strip()
+
+# ---------- CLI 入口 ----------
+
+def load_script_files(file_path: str, reference_path: Optional[str] = None) -> Tuple[str, Optional[str]]:
     """
-    ブラケットパラメータ特化の修正をLLMに依頼します。
+    スクリプトファイルを読み込む
     
     Args:
-        full_code: スクリプト全体のコード
-        stderr: エラー出力
-        error_line_info: parse_traceback()の結果
-        bracket_context: extract_bracket_failure_context()の結果
-        reference_code: 参考スクリプト（オプション）
+        file_path: 編集対象のファイルパス
+        reference_path: 参考スクリプトのファイルパス（オプション）
     
     Returns:
-        修正後のスクリプトコード
+        (original_code, reference_code)
+    
+    Raises:
+        FileOperationError: ファイル読み込みに失敗した場合
     """
-    print("--- Requesting bracket-specific fix from LLM ---")
+    if not os.path.exists(file_path):
+        raise FileOperationError(f"ファイル '{file_path}' が見つかりません。")
     
-    # 参考スクリプトから該当するCreateBracket例を抽出（簡易版）
-    reference_snippet = ""
-    if reference_code:
-        # bracketParam定義とCreateBracket呼び出しのブロックを抽出
-        bracket_pattern = r'(bracketPram\w+\s*=\s*part\.CreateBracketParam\(\)[^\n]*\n(?:[^\n]*\n)*?bracket\w+\s*=\s*part\.CreateBracket\([^\n]+\))'
-        matches = re.findall(bracket_pattern, reference_code, re.MULTILINE)
-        if matches:
-            # 最初の2-3個の例を参考として使用
-            reference_snippet = '\n\n'.join(matches[:3])
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            original_code = f.read()
+        print(f"--- [Mode: Edit] Loading script from: {file_path} ---")
+    except Exception as e:
+        raise FileOperationError(f"ファイル '{file_path}' の読み込み中にエラーが発生しました: {e}")
     
-    if not reference_snippet:
-        reference_snippet = "# 参考スクリプトが提供されていないか、該当例が見つかりませんでした。"
+    reference_code = None
+    if reference_path:
+        if not os.path.exists(reference_path):
+            raise FileOperationError(f"参考スクリプトファイル '{reference_path}' が見つかりません。")
+        try:
+            with open(reference_path, 'r', encoding='utf-8') as f:
+                reference_code = f.read()
+            print(f"--- [Reference Script] Loading from: {reference_path} ---")
+        except Exception as e:
+            raise FileOperationError(f"参考スクリプトファイル '{reference_path}' の読み込み中にエラーが発生しました: {e}")
     
-    # bracket_param_sectionの準備
-    bracket_param_section = bracket_context.get('bracket_param_definition', '')
-    if not bracket_param_section:
-        bracket_param_section = f"# ブラケットパラメータ '{bracket_context.get('bracket_param_name', 'unknown')}' の定義が見つかりませんでした。\n# エラー行: {bracket_context.get('error_line', '')}"
+    return original_code, reference_code
+
+
+def prepare_output_directory(output_path: str) -> None:
+    """
+    出力先ディレクトリを作成する
     
-    # プロンプトの準備
-    prompt_vars = {
-        "error_traceback": stderr,
-        "error_line_number": error_line_info.get('line_number', 'unknown'),
-        "error_line": bracket_context.get('error_line', ''),
-        "context_before": bracket_context.get('context_before', ''),
-        "context_after": bracket_context.get('context_after', ''),
-        "context_lines": 50,
-        "bracket_param_section": bracket_param_section,
-        "reference_snippet": reference_snippet,
-        "full_code": full_code
-    }
+    Args:
+        output_path: 出力先ファイルパス
     
-    prompt = BRACKET_FIX_PROMPT.format(**prompt_vars)
-    response = llm.invoke(prompt)
+    Raises:
+        FileOperationError: ディレクトリ作成に失敗した場合
+    """
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"--- Created output directory: {output_dir} ---")
+        except OSError as e:
+            raise FileOperationError(f"出力先ディレクトリ '{output_dir}' の作成に失敗しました: {e}")
+
+
+def extract_script_code(answer: str) -> Optional[str]:
+    """
+    LLMの回答からPythonスクリプトコードを抽出する
     
-    # スクリプトコードを抽出
-    script_match = re.search(r"```python\n(.*?)```", response.content, re.DOTALL)
+    Args:
+        answer: LLMの回答文字列
+    
+    Returns:
+        抽出されたスクリプトコード、見つからない場合はNone
+    """
+    script_match = re.search(PYTHON_CODE_BLOCK_PATTERN, answer, re.DOTALL)
     if script_match:
         return script_match.group(1).strip()
-    else:
-        # コードブロックがない場合はそのまま返す（LLMが直接コードを返した場合）
-        return response.content.strip()
+    return None
 
-# \---------- CLI 入口 ----------
+
+def extract_explanation(answer: str) -> Optional[str]:
+    """
+    LLMの回答からスクリプトの説明を抽出する
+    
+    Args:
+        answer: LLMの回答文字列
+    
+    Returns:
+        抽出された説明、見つからない場合はNone
+    """
+    explanation_match = re.search(r"### スクリプトの説明\n\n(.*)", answer, re.DOTALL)
+    if explanation_match:
+        return explanation_match.group(1).strip()
+    return None
+
+
+def save_script_file(file_path: str, script_code: str, attempt: Optional[int] = None, keep_attempts: bool = True) -> None:
+    """
+    スクリプトをファイルに保存する
+    
+    Args:
+        file_path: 保存先ファイルパス
+        script_code: 保存するスクリプトコード
+        attempt: 試行回数（指定された場合、attempt番号付きファイルも作成）
+        keep_attempts: attempt番号付きファイルを作成するかどうか
+    
+    Raises:
+        FileOperationError: ファイル書き込みに失敗した場合
+    """
+    try:
+        # attempt番号付きファイルの保存
+        if keep_attempts and attempt is not None and attempt > 0:
+            attempt_path = file_path.replace('.py', f'.attempt{attempt}.py')
+            with open(attempt_path, 'w', encoding='utf-8') as f:
+                f.write(script_code)
+            print(f"--- Script saved to: {attempt_path} ---")
+        
+        # 最新版の保存
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(script_code)
+        print(f"--- Script saved to: {file_path} ---")
+    except IOError as e:
+        raise FileOperationError(f"ファイル '{file_path}' の書き込みに失敗しました: {e}")
+
+
+def save_error_log(file_path: str, error_output: str, attempt: Optional[int] = None) -> None:
+    """
+    エラーログをファイルに保存する
+    
+    Args:
+        file_path: 元のファイルパス
+        error_output: エラー出力文字列
+        attempt: 試行回数（Noneの場合はfinalログとして保存）
+    """
+    if not error_output:
+        return
+    
+    try:
+        if attempt is not None:
+            error_log_path = file_path.replace('.py', f'.attempt{attempt}.stderr.log')
+        else:
+            error_log_path = file_path.replace('.py', '.final.stderr.log')
+        
+        with open(error_log_path, 'w', encoding='utf-8') as f:
+            f.write(error_output)
+        print(f"--- Error log saved to: {error_log_path} ---")
+    except IOError as e:
+        print(f"警告: エラーログの保存に失敗しました: {e}")
+
+
+def process_generation_loop(
+    question: str,
+    original_code: str,
+    reference_code: Optional[str],
+    output_path: Optional[str],
+    max_retries: int,
+    timeout_sec: int,
+    keep_attempts: bool,
+    no_exec: bool
+    ) -> None:
+        """
+        スクリプト生成と実行のメインループ
+        
+        Args:
+            question: 編集指示
+            original_code: 元のスクリプトコード
+            reference_code: 参考スクリプトコード（オプション）
+            output_path: 出力先ファイルパス（Noneの場合は標準出力）
+            max_retries: 最大再試行回数
+            timeout_sec: タイムアウト秒数
+            keep_attempts: 各試行のスクリプトを保存するかどうか
+            no_exec: 実行をスキップするかどうか
+        """
+        current_code = None
+        error_output = None
+        
+        for attempt in range(max_retries + 1):
+            if attempt == 0:
+                # 初回生成
+                print(f"\n=== Attempt {attempt + 1}/{max_retries + 1}: Initial Generation ===")
+                answer = ask(question, original_code=original_code, reference_code=reference_code)
+            else:
+                # 修正ループ
+                print(f"\n=== Attempt {attempt + 1}/{max_retries + 1}: Self-Correction ===")
+                
+                if not current_code or not error_output:
+                    print("エラー: 修正に必要な情報が不足しています。")
+                    break
+                
+                # エラー情報を解析
+                error_line_info = parse_traceback(error_output)
+                bracket_context = extract_bracket_failure_context(current_code, error_line_info)
+                
+                # 修正を依頼
+                current_code = fix_bracket_code(
+                    current_code,
+                    error_output,
+                    error_line_info,
+                    bracket_context,
+                    reference_code
+                )
+                answer = None
+            
+            # スクリプト抽出と保存
+            if output_path:
+                try:
+                    if attempt == 0:
+                        script_code = extract_script_code(answer)
+                        if not script_code:
+                            print("\n--- Generated Answer (script not found) ---")
+                            print(answer)
+                            print(f"\n警告: スクリプトコードが見つからなかったため、ファイル '{output_path}' には保存されませんでした。")
+                            break
+                    else:
+                        script_code = current_code
+                    
+                    if script_code:
+                        current_code = script_code
+                        
+                        # ファイル保存
+                        save_script_file(output_path, script_code, attempt, keep_attempts)
+                        
+                        # エラーログの保存（修正ループの場合）
+                        if keep_attempts and attempt > 0 and error_output:
+                            save_error_log(output_path, error_output, attempt)
+                        
+                        # 初回のみ説明を表示
+                        if attempt == 0:
+                            explanation = extract_explanation(answer)
+                            if explanation:
+                                print("\n--- Script Explanation ---")
+                                print(explanation)
+                        
+                        # 実行（--no-execが指定されていない場合）
+                        if not no_exec:
+                            success, stdout, stderr, returncode = run_script(output_path, timeout_sec)
+                            
+                            if success:
+                                print("\n--- Execution Successful ---")
+                                if stdout:
+                                    print(stdout)
+                                break
+                            else:
+                                print(f"\n--- Execution Failed (Attempt {attempt + 1}) ---")
+                                if stderr:
+                                    print(stderr)
+                                error_output = stderr
+                                
+                                if attempt == max_retries:
+                                    print("\n--- Max retries reached. Final script saved. ---")
+                                    if keep_attempts and error_output:
+                                        save_error_log(output_path, error_output)
+                        else:
+                            # --no-execが指定されている場合は実行せず終了
+                            print("\n--- Script saved (execution skipped by --no-exec) ---")
+                            break
+                except FileOperationError as e:
+                    print(f"エラー: {e}")
+                    sys.exit(1)
+                except Exception as e:
+                    print(f"エラー: 出力処理中に予期せぬエラーが発生しました: {e}")
+                    sys.exit(1)
+            else:
+                # 出力ファイルが指定されていない場合は、従来通り全体を出力
+                if attempt == 0:
+                    print("\n--- Generated Answer ---")
+                    print(answer)
+                break
+
 
 if __name__ == "__main__":
     import argparse
-    import re
 
     # --- 引数パーサーの設定 ---
     parser = argparse.ArgumentParser(
@@ -673,14 +964,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max-retries",
         type=int,
-        default=3,
-        help="最大再試行回数（デフォルト: 3）"
+        default=DEFAULT_MAX_RETRIES,
+        help=f"最大再試行回数（デフォルト: {DEFAULT_MAX_RETRIES}）"
     )
     parser.add_argument(
         "--timeout-sec",
         type=int,
-        default=60,
-        help="スクリプト実行のタイムアウト秒数（デフォルト: 60）"
+        default=DEFAULT_TIMEOUT_SEC,
+        help=f"スクリプト実行のタイムアウト秒数（デフォルト: {DEFAULT_TIMEOUT_SEC}）"
     )
     parser.add_argument(
         "--keep-attempts",
@@ -702,186 +993,43 @@ if __name__ == "__main__":
     )
     
     args = parser.parse_args()
-
-    original_code = None
-    reference_code = None
-    question = ""
     
-    # --- 参考スクリプトの読み込み ---
-    if args.reference:
-        if not os.path.exists(args.reference):
-            print(f"エラー: 参考スクリプトファイル '{args.reference}' が見つかりません。")
-            sys.exit(1)
-        try:
-            with open(args.reference, 'r', encoding='utf-8') as f:
-                reference_code = f.read()
-            print(f"--- [Reference Script] Loading from: {args.reference} ---")
-        except Exception as e:
-            print(f"エラー: 参考スクリプトファイル '{args.reference}' の読み込み中にエラーが発生しました: {e}")
-            sys.exit(1)
-    
-    # --- 引数の解析とモード判定 ---
-    # 編集モードのみサポート
-    if not os.path.exists(args.first_arg):
-        print(f"エラー: ファイル '{args.first_arg}' が見つかりません。")
-        parser.print_help()
-        sys.exit(1)
-    
+    # 引数の検証
     if not args.instruction:
         print("エラー: <ファイルパス>と<編集指示>の両方が必要です。")
         parser.print_help()
         sys.exit(1)
     
-    file_path = args.first_arg
-    question = args.instruction
-    
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            original_code = f.read()
-        print(f"--- [Mode: Edit] Loading script from: {file_path} ---")
-    except Exception as e:
-        print(f"エラー: ファイル '{file_path}' の読み込み中にエラーが発生しました: {e}")
-        sys.exit(1)
-
-    # --- 実行 ---
-    try:
-        MAX_RETRIES = args.max_retries
-        timeout_sec = args.timeout_sec
-        keep_attempts = args.keep_attempts
-        no_exec = args.no_exec
+        # ファイル読み込み
+        original_code, reference_code = load_script_files(args.first_arg, args.reference)
         
-        current_code = None
-        error_output = None
-        
-        # 出力先パスの準備
+        # 出力先ディレクトリの準備
         output_path = None
         if args.output:
             output_path = os.path.abspath(args.output)
-            output_dir = os.path.dirname(output_path)
-            if output_dir and not os.path.exists(output_dir):
-                try:
-                    os.makedirs(output_dir, exist_ok=True)
-                    print(f"--- Created output directory: {output_dir} ---")
-                except OSError as e:
-                    print(f"エラー: 出力先ディレクトリ '{output_dir}' の作成に失敗しました: {e}")
-                    sys.exit(1)
+            prepare_output_directory(output_path)
         
-        for attempt in range(MAX_RETRIES + 1):
-            if attempt == 0:
-                # 初回生成
-                print(f"\n=== Attempt {attempt + 1}/{MAX_RETRIES + 1}: Initial Generation ===")
-                answer = ask(question, original_code=original_code, reference_code=reference_code)
-            else:
-                # 修正ループ
-                print(f"\n=== Attempt {attempt + 1}/{MAX_RETRIES + 1}: Self-Correction ===")
-                
-                # エラー情報を解析
-                error_line_info = parse_traceback(error_output)
-                bracket_context = extract_bracket_failure_context(current_code, error_line_info)
-                
-                # 修正を依頼
-                current_code = fix_bracket_code(
-                    current_code,
-                    error_output,
-                    error_line_info,
-                    bracket_context,
-                    reference_code
-                )
-                
-                # 説明は不要なので、answerを空にして後続処理でcurrent_codeを使用
-                answer = None
-            
-            # --- スクリプト抽出と保存 ---
-            if output_path:
-                try:
-                    script_code = None
-                    
-                    if attempt == 0:
-                        # 初回はanswerから抽出
-                        script_match = re.search(r"```python\n(.*?)```", answer, re.DOTALL)
-                        if script_match:
-                            script_code = script_match.group(1).strip()
-                        else:
-                            print("\n--- Generated Answer (script not found) ---")
-                            print(answer)
-                            print(f"\n警告: スクリプトコードが見つからなかったため、ファイル '{output_path}' には保存されませんでした。")
-                            break
-                    else:
-                        # 修正ループではcurrent_codeを使用
-                        script_code = current_code
-                    
-                    if script_code:
-                        current_code = script_code
-                        
-                        # ファイル保存（attempt番号付きで保存する場合）
-                        if keep_attempts and attempt > 0:
-                            attempt_path = output_path.replace('.py', f'.attempt{attempt}.py')
-                            with open(attempt_path, 'w', encoding='utf-8') as f:
-                                f.write(script_code)
-                            print(f"--- Script saved to: {attempt_path} ---")
-                            
-                            # エラーログも保存
-                            if error_output:
-                                error_log_path = output_path.replace('.py', f'.attempt{attempt}.stderr.log')
-                                with open(error_log_path, 'w', encoding='utf-8') as f:
-                                    f.write(error_output)
-                                print(f"--- Error log saved to: {error_log_path} ---")
-                        
-                        # 常に最新版をoutput_pathに保存
-                        with open(output_path, 'w', encoding='utf-8') as f:
-                            f.write(script_code)
-                        print(f"--- Script saved to: {output_path} ---")
-                        
-                        # 初回のみ説明を表示
-                        if attempt == 0:
-                            explanation_match = re.search(r"### スクリプトの説明\n\n(.*)", answer, re.DOTALL)
-                            if explanation_match:
-                                explanation = explanation_match.group(1).strip()
-                                print("\n--- Script Explanation ---")
-                                print(explanation)
-                        
-                        # 実行（--no-execが指定されていない場合）
-                        if not no_exec:
-                            success, stdout, stderr, returncode = run_script(output_path, timeout_sec)
-                            
-                            if success:
-                                print("\n--- Execution Successful ---")
-                                if stdout:
-                                    print(stdout)
-                                break
-                            else:
-                                print(f"\n--- Execution Failed (Attempt {attempt + 1}) ---")
-                                if stderr:
-                                    print(stderr)
-                                error_output = stderr
-                                
-                                if attempt == MAX_RETRIES:
-                                    print("\n--- Max retries reached. Final script saved. ---")
-                                    # 最終エラーログを保存
-                                    if keep_attempts and error_output:
-                                        final_error_log = output_path.replace('.py', '.final.stderr.log')
-                                        with open(final_error_log, 'w', encoding='utf-8') as f:
-                                            f.write(error_output)
-                                        print(f"--- Final error log saved to: {final_error_log} ---")
-                        else:
-                            # --no-execが指定されている場合は実行せず終了
-                            print("\n--- Script saved (execution skipped by --no-exec) ---")
-                            break
-                    
-                except IOError as e:
-                    print(f"エラー: ファイル '{output_path}' の書き込みに失敗しました: {e}")
-                    sys.exit(1)
-                except Exception as e:
-                    print(f"エラー: 出力処理中に予期せぬエラーが発生しました: {e}")
-                    sys.exit(1)
-            else:
-                # 出力ファイルが指定されていない場合は、従来通り全体を出力
-                if attempt == 0:
-                    print("\n--- Generated Answer ---")
-                    print(answer)
-                break
-
+        # メイン処理
+        process_generation_loop(
+            question=args.instruction,
+            original_code=original_code,
+            reference_code=reference_code,
+            output_path=output_path,
+            max_retries=args.max_retries,
+            timeout_sec=args.timeout_sec,
+            keep_attempts=args.keep_attempts,
+            no_exec=args.no_exec
+        )
+    
+    except FileOperationError as e:
+        print(f"\nエラー: {e}")
+        sys.exit(1)
     except ValueError as e:
         print(f"\nエラー: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"\n予期せぬエラーが発生しました: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
