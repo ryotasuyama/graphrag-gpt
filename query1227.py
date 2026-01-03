@@ -27,7 +27,7 @@ from neo4j.exceptions import ClientError, CypherSyntaxError
 MAX_BRACKET_SEARCH_LINES = 200  # ブラケットパラメータ定義の探索範囲
 CONTEXT_EXTRACTION_LINES = 100  # コンテキスト抽出の範囲
 GRAPH_SEARCH_TOP_K = 10000      # グラフ検索の最大結果数
-DEFAULT_TIMEOUT_SEC = 60         # デフォルトのタイムアウト秒数
+DEFAULT_TIMEOUT_SEC = 600         # デフォルトのタイムアウト秒数
 DEFAULT_MAX_RETRIES = 3          # デフォルトの最大再試行回数
 
 # 正規表現パターンの定数化
