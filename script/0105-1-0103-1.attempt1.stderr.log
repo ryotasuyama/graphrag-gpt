@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "C:\Users\fsryo\graphrag-gpt\script\0105-1-0103-1.py", line 4609, in <module>
+    bracket20 = part.CreateBracket(bracketPram20,False)
+  File "<COMObject GetPart>", line 3, in CreateBracket
+pywintypes.com_error: (-2147352567, '例外が発生しました。', (0, None, None, None, 0, -2147467259), None)
