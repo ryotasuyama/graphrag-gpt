@@ -12,7 +12,7 @@
 
 ## 📋 前提条件
 
-- Python 3.10以上
+- Python 3.13.5以上
 - Neo4j（ローカルまたはクラウド）
 - OpenAI互換APIキー（Embeddings および Chat モデル用）
 - Tree-sitter（Python構文解析用）
