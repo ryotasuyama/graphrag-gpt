@@ -1,0 +1,26 @@
+# BracketType 1501: Profile(FL面) x Profile(FL面)
+# BaseElement は Profile本体 (profileXX[0])
+# Surfaces1/Surfaces2 はどちらも Profile の FL面
+bracketPram1 = part.CreateBracketParam()
+bracketPram1.DefinitionType=1
+bracketPram1.BracketName="HK.Casing.Wall.Fore.DL01.Deck.DP"
+bracketPram1.MaterialName="SS400"
+bracketPram1.BaseElement=profile7[0]
+bracketPram1.UseSideSheetForPlane=False
+bracketPram1.Mold="+"
+bracketPram1.Thickness="7.9999999999999964"
+bracketPram1.BracketType=1501
+bracketPram1.Scallop1Type=1801
+bracketPram1.Scallop1Params=["0"]
+bracketPram1.Scallop2Type=0
+bracketPram1.Surfaces1=[profile7[0]+",FL"]
+bracketPram1.RevSf1=False
+bracketPram1.Surfaces2=[profile6[0]+",FL"]
+bracketPram1.RevSf2=False
+bracketPram1.RevSf3=False
+bracketPram1.Sf1DimensionType=1531
+bracketPram1.Sf1DimensonParams=["200","15"]
+bracketPram1.Sf2DimensionType=1531
+bracketPram1.Sf2DimensonParams=["200","15"]
+bracket1 = part.CreateBracket(bracketPram1,False)
+part.SetElementColor(bracket1,"0","255","255","0.19999998807907104")

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(python:*)",
+      "Bash(c:Usersfsryographrag-gptvenvScriptspip install langchain-google-genai)"
+    ]
+  }
+}

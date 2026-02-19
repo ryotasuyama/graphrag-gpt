@@ -16,7 +16,20 @@ from typing import Optional, Tuple
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from prompts.loader import load_prompt, load_example, is_bracket_task, build_generation_prompt
+from prompts.loader import (
+    load_prompt, load_example, is_bracket_task,
+    build_generation_prompt, build_analysis_prompt, build_bracket_section_prompt,
+    build_bracket_section_prompt_with_error,
+    build_bracket_group_json_prompt, build_bracket_group_json_prompt_with_error,
+    extract_json_from_llm_response,
+)
+from prompts.structure_extractor import (
+    extract_script_structure, detect_bracket_candidates,
+    format_structure_for_prompt, format_candidates_for_prompt,
+    validate_bracket_section, auto_fix_bracket_section,
+    group_bracket_candidates, merge_candidate_with_llm_params,
+)
+from prompts.bracket_template import render_bracket_code, validate_bracket_json
 
 # ========== 定数定義 ==========
 MAX_BRACKET_SEARCH_LINES = 200  # ブラケットパラメータ定義の探索範囲
@@ -348,6 +361,332 @@ def fix_bracket_code(
             # コードブロックがない場合はそのまま返す（LLMが直接コードを返した場合）
             return response.content.strip()
 
+# ---------- 3-Agent Pipeline ----------
+
+BRACKET_SECTION_MARKER = "bracketPram1 = part.CreateBracketParam()"
+
+
+def analyze_bracket_placement(
+    instruction: str,
+    original_code: str,
+    reference_code: Optional[str] = None,
+    llm=None,
+    structure_summary: str = "",
+    candidates_summary: str = "",
+) -> str:
+    """Agent 1: ブラケット配置仕様ドキュメント（Markdown）を返す"""
+    print("--- [Agent 1] Analyzing bracket placement ---")
+    prompt = build_analysis_prompt(
+        instruction, original_code, reference_code,
+        structure_summary=structure_summary,
+        candidates_summary=candidates_summary,
+    )
+    response = llm.invoke(prompt)
+    return response.content.strip()
+
+
+def generate_bracket_section(
+    analysis_document: str,
+    reference_code: Optional[str] = None,
+    llm=None,
+    structure_summary: str = "",
+) -> str:
+    """Agent 2: ブラケットセクションのコードのみを返す"""
+    print("--- [Agent 2] Generating bracket section ---")
+    prompt = build_bracket_section_prompt(analysis_document, reference_code, structure_summary=structure_summary)
+    response = llm.invoke(prompt)
+
+    # ```python ブロックを抽出
+    script_match = re.search(PYTHON_CODE_BLOCK_PATTERN, response.content, re.DOTALL)
+    if script_match:
+        return script_match.group(1).strip()
+    return response.content.strip()
+
+
+def generate_bracket_section_with_error(
+    analysis_document: str,
+    reference_code: Optional[str],
+    error_context: dict,
+    llm=None,
+    structure_summary: str = "",
+) -> str:
+    """Agent 2 (リトライ): エラーコンテキスト付きでブラケットセクションを再生成する"""
+    print("--- [Agent 2 Retry] Re-generating bracket section with error context ---")
+    prompt = build_bracket_section_prompt_with_error(
+        analysis_document, reference_code, error_context, structure_summary=structure_summary
+    )
+    response = llm.invoke(prompt)
+
+    script_match = re.search(PYTHON_CODE_BLOCK_PATTERN, response.content, re.DOTALL)
+    if script_match:
+        return script_match.group(1).strip()
+    return response.content.strip()
+
+
+def generate_bracket_group_json(
+    group: dict,
+    analysis_document: str,
+    reference_code: Optional[str],
+    structure_summary: str,
+    llm,
+    error_ctx: Optional[dict] = None,
+) -> Optional[dict]:
+    """
+    Agent 2 (batch JSON モード): グループ単位でブラケット JSON を生成する。
+
+    Returns:
+        {"brackets": [...]} の dict、またはパース失敗時は None
+    """
+    if error_ctx:
+        print(f"--- [Agent 2 JSON Retry] Group {group['group_id']}: {group['attach_surface']} ---")
+        prompt = build_bracket_group_json_prompt_with_error(
+            group, analysis_document, reference_code, structure_summary, error_ctx
+        )
+    else:
+        print(f"--- [Agent 2 JSON] Group {group['group_id']}: {group['attach_surface']} "
+              f"({len(group['candidates'])} candidates) ---")
+        prompt = build_bracket_group_json_prompt(
+            group, analysis_document, reference_code, structure_summary
+        )
+
+    response = llm.invoke(prompt)
+    parsed = extract_json_from_llm_response(response.content)
+    if parsed is None:
+        print(f"--- [Agent 2 JSON] Failed to parse JSON response ---")
+    return parsed
+
+
+def _execute_batch_group(
+    group: dict,
+    group_json: dict,
+    bracket_index: int,
+    structure: dict,
+    original_code: str,
+    accumulated_code: str,
+    output_path: str,
+    timeout_sec: int,
+    no_exec: bool,
+) -> tuple:
+    """
+    グループの JSON からコード生成 → バリデーション → マージ → 実行テストを行う。
+
+    Returns:
+        (success: bool, group_code: str, num_brackets: int, stderr: str, generated_code: str)
+        success=True  → group_code を accumulated_code に追加してよい
+        success=False → エラーリトライが必要（stderr にエラー内容）
+    """
+    candidates = group["candidates"]
+
+    # candidate_id で JSON 要素と候補を対応付ける
+    cid_to_candidate = {c["id"]: c for c in candidates}
+    full_specs = []
+    for llm_bracket in group_json.get("brackets", []):
+        cid = llm_bracket.get("candidate_id")
+        candidate = cid_to_candidate.get(cid)
+        if candidate is None:
+            # candidate_id が一致しない場合は順番で対応
+            idx = len(full_specs)
+            if idx < len(candidates):
+                candidate = candidates[idx]
+            else:
+                print(f"    WARNING: candidate_id={cid} not found, skipping")
+                continue
+        full_specs.append(merge_candidate_with_llm_params(candidate, llm_bracket))
+
+    if not full_specs:
+        return False, "", 0, "No bracket specs after merge", ""
+
+    # テンプレート展開
+    group_code = render_bracket_code(full_specs, start_index=bracket_index)
+
+    # 静的バリデーション
+    issues = validate_bracket_section(group_code, structure)
+    critical = [i for i in issues if i["level"] == "error"]
+    if critical:
+        fixed = auto_fix_bracket_section(group_code, issues)
+        remaining = [i for i in validate_bracket_section(fixed, structure) if i["level"] == "error"]
+        if not remaining:
+            group_code = fixed
+            print(f"    [Validation] Auto-fix resolved all issues")
+        else:
+            for r in remaining:
+                print(f"    [Validation Error] {r['message']}")
+
+    # マージ & 実行テスト
+    merged_accumulated = (accumulated_code + "\n" + group_code).strip()
+    test_code = merge_bracket_section(original_code, merged_accumulated)
+
+    if output_path:
+        save_script_file(output_path, test_code)
+
+    if no_exec:
+        return True, group_code, len(full_specs), "", group_code
+
+    success, stdout, stderr, returncode = run_script(output_path or "", timeout_sec)
+    return success, group_code, len(full_specs), stderr, group_code
+
+
+def process_batch_pipeline(
+    question: str,
+    original_code: str,
+    reference_code: Optional[str],
+    output_path: Optional[str],
+    timeout_sec: int,
+    keep_attempts: bool,
+    no_exec: bool,
+    llm,
+    structure: dict,
+    structure_summary: str,
+    candidates: list,
+) -> None:
+    """
+    batch パイプライン: グループ単位で JSON 生成 → テンプレート展開 → 逐次実行。
+    成功グループは累積し、失敗グループはリトライ or スキップ。
+    """
+    groups = group_bracket_candidates(candidates)
+    print(f"--- Batch mode: {len(candidates)} candidates → {len(groups)} groups ---")
+
+    # Agent 1 (1 回のみ実行)
+    from prompts.loader import build_analysis_prompt, format_candidates_for_prompt
+    candidates_summary = format_candidates_for_prompt(candidates)
+    analysis_document = analyze_bracket_placement(
+        question, original_code, reference_code, llm=llm,
+        structure_summary=structure_summary,
+        candidates_summary=candidates_summary,
+    )
+    if output_path:
+        analysis_path = output_path.replace('.py', '.analysis.md')
+        try:
+            with open(analysis_path, 'w', encoding='utf-8') as f:
+                f.write(analysis_document)
+            print(f"--- Analysis document saved to: {analysis_path} ---")
+        except IOError as e:
+            print(f"警告: 分析ドキュメントの保存に失敗しました: {e}")
+
+    accumulated_code = ""
+    bracket_index = 1
+    successful_groups = []
+    failed_groups = []
+    MAX_GROUP_RETRIES = 2
+
+    for group in groups:
+        gid = group["group_id"]
+        print(f"\n=== Group {gid}/{len(groups)}: {group['attach_surface']} "
+              f"({len(group['candidates'])} candidates, bracket#{bracket_index}~) ===")
+
+        # Step A: Agent 2 JSON 生成
+        group_json = generate_bracket_group_json(
+            group, analysis_document, reference_code, structure_summary, llm
+        )
+
+        # JSON スキーマ検証
+        if group_json is None:
+            json_errors = ["JSON の解析に失敗しました"]
+        else:
+            json_errors = validate_bracket_json(group_json)
+
+        if json_errors:
+            print(f"    JSON validation errors: {json_errors}")
+            # 1 回だけリトライ（JSON 解析エラー）
+            error_ctx = {
+                "stderr": f"JSON validation errors: {'; '.join(json_errors)}",
+                "json_used": "",
+                "generated_code": "",
+            }
+            group_json = generate_bracket_group_json(
+                group, analysis_document, reference_code, structure_summary, llm,
+                error_ctx=error_ctx
+            )
+            if group_json is None or validate_bracket_json(group_json):
+                print(f"    Group {gid} SKIPPED: JSON generation failed after retry")
+                failed_groups.append(group)
+                continue
+
+        # Step B: コード生成 → バリデーション → 実行テスト
+        import json as _json
+        json_str = _json.dumps(group_json, ensure_ascii=False, indent=2)
+
+        last_stderr = ""
+        last_code = ""
+        success = False
+
+        for retry in range(MAX_GROUP_RETRIES + 1):
+            if retry > 0:
+                error_ctx = {
+                    "stderr": last_stderr,
+                    "json_used": json_str,
+                    "generated_code": last_code,
+                }
+                group_json = generate_bracket_group_json(
+                    group, analysis_document, reference_code, structure_summary, llm,
+                    error_ctx=error_ctx
+                )
+                if group_json is None or validate_bracket_json(group_json):
+                    print(f"    Retry {retry}: JSON invalid, skipping group")
+                    break
+                json_str = _json.dumps(group_json, ensure_ascii=False, indent=2)
+
+            success, group_code, num_brackets, stderr, last_code = _execute_batch_group(
+                group=group,
+                group_json=group_json,
+                bracket_index=bracket_index,
+                structure=structure,
+                original_code=original_code,
+                accumulated_code=accumulated_code,
+                output_path=output_path,
+                timeout_sec=timeout_sec,
+                no_exec=no_exec,
+            )
+            last_stderr = stderr
+
+            if success:
+                accumulated_code = (accumulated_code + "\n" + group_code).strip()
+                bracket_index += num_brackets
+                successful_groups.append(group)
+                print(f"    Group {gid} OK: {num_brackets} brackets added "
+                      f"(total {bracket_index - 1})")
+                break
+            else:
+                if retry < MAX_GROUP_RETRIES:
+                    print(f"    Group {gid} failed (retry {retry + 1}/{MAX_GROUP_RETRIES}): "
+                          f"{stderr[:200] if stderr else 'no stderr'}")
+                    if keep_attempts and output_path:
+                        save_error_log(output_path, stderr, attempt=gid * 10 + retry)
+                else:
+                    print(f"    Group {gid} SKIPPED after {MAX_GROUP_RETRIES} retries")
+                    failed_groups.append(group)
+
+        if not success and group not in failed_groups:
+            failed_groups.append(group)
+
+    # 最終スクリプトを保存
+    print(f"\n=== Batch complete: {len(successful_groups)} groups OK, "
+          f"{len(failed_groups)} groups skipped ===")
+    if accumulated_code and output_path:
+        final_code = merge_bracket_section(original_code, accumulated_code)
+        save_script_file(output_path, final_code)
+        print(f"--- Final script with {bracket_index - 1} brackets saved to: {output_path} ---")
+    elif not accumulated_code:
+        print("警告: すべてのグループが失敗しました。出力スクリプトは生成されませんでした。")
+
+
+def merge_bracket_section(original_code: str, new_bracket_section: str) -> str:
+    """
+    元スクリプトの bracketPram1 行以降を new_bracket_section で置換する。
+    マーカーが見つからなければ末尾に追記する。
+    """
+    idx = original_code.find(BRACKET_SECTION_MARKER)
+    if idx != -1:
+        # マーカー行の先頭を探して、その行ごと置換
+        line_start = original_code.rfind('\n', 0, idx) + 1
+        merged = original_code[:line_start] + new_bracket_section + "\n"
+        print("--- [Merge] Replaced bracket section in original script ---")
+    else:
+        merged = original_code.rstrip() + "\n\n" + new_bracket_section + "\n"
+        print("--- [Merge] Appended bracket section to original script ---")
+    return merged
+
+
 # ---------- CLI 入口 ----------
 
 def load_script_files(file_path: str, reference_path: Optional[str] = None) -> Tuple[str, Optional[str]]:
@@ -502,11 +841,12 @@ def process_generation_loop(
     timeout_sec: int,
     keep_attempts: bool,
     no_exec: bool,
-    llm=None
+    llm=None,
+    pipeline_mode: str = "three",
     ) -> None:
         """
         スクリプト生成と実行のメインループ
-        
+
         Args:
             question: 編集指示
             original_code: 元のスクリプトコード
@@ -517,71 +857,179 @@ def process_generation_loop(
             keep_attempts: 各試行のスクリプトを保存するかどうか
             no_exec: 実行をスキップするかどうか
         """
+        print(f"--- Pipeline mode: {pipeline_mode} ---")
+
         current_code = None
         error_output = None
+        # 3-agentモード用: 分析ドキュメントを保持（エラー修正ループで再利用）
+        analysis_document = None
+
+        # --- 構造解析（Agent 1/2 の前に実行） ---
+        structure = extract_script_structure(original_code)
+        structure_summary = format_structure_for_prompt(structure)
+        candidates = detect_bracket_candidates(structure)
+        candidates_summary = format_candidates_for_prompt(candidates)
+        print(f"--- Structure extraction: {len(structure['profiles'])} profiles, "
+              f"{len(structure['sheets'])} sheets, {len(candidates)} bracket candidates ---")
+
+        # --- batch モード: 独立した処理フロー ---
+        if pipeline_mode == "batch":
+            process_batch_pipeline(
+                question=question,
+                original_code=original_code,
+                reference_code=reference_code,
+                output_path=output_path,
+                timeout_sec=timeout_sec,
+                keep_attempts=keep_attempts,
+                no_exec=no_exec,
+                llm=llm,
+                structure=structure,
+                structure_summary=structure_summary,
+                candidates=candidates,
+            )
+            return
 
         for attempt in range(max_retries + 1):
             if attempt == 0:
                 # 初回生成
                 print(f"\n=== Attempt {attempt + 1}/{max_retries + 1}: Initial Generation ===")
-                answer = ask(question, original_code=original_code, reference_code=reference_code, llm=llm)
+
+                if pipeline_mode == "three":
+                    # Agent 1: 分析ドキュメント生成（構造情報付き）
+                    analysis_document = analyze_bracket_placement(
+                        question, original_code, reference_code, llm=llm,
+                        structure_summary=structure_summary,
+                        candidates_summary=candidates_summary,
+                    )
+                    # 分析ドキュメントの保存
+                    if output_path:
+                        analysis_path = output_path.replace('.py', '.analysis.md')
+                        try:
+                            with open(analysis_path, 'w', encoding='utf-8') as f:
+                                f.write(analysis_document)
+                            print(f"--- Analysis document saved to: {analysis_path} ---")
+                        except IOError as e:
+                            print(f"警告: 分析ドキュメントの保存に失敗しました: {e}")
+
+                    # Agent 2: ブラケットセクション生成（構造情報付き）
+                    bracket_section = generate_bracket_section(
+                        analysis_document, reference_code, llm=llm,
+                        structure_summary=structure_summary,
+                    )
+
+                    # --- 実行前バリデーション ---
+                    bracket_section = _validate_and_fix_bracket(
+                        bracket_section, structure, analysis_document,
+                        reference_code, structure_summary, llm
+                    )
+
+                    # プログラムマージ
+                    script_code = merge_bracket_section(original_code, bracket_section)
+                    answer = None
+
+                elif pipeline_mode == "two":
+                    # Agent 1: 分析ドキュメント生成（構造情報付き）
+                    analysis_document = analyze_bracket_placement(
+                        question, original_code, reference_code, llm=llm,
+                        structure_summary=structure_summary,
+                        candidates_summary=candidates_summary,
+                    )
+                    if output_path:
+                        analysis_path = output_path.replace('.py', '.analysis.md')
+                        try:
+                            with open(analysis_path, 'w', encoding='utf-8') as f:
+                                f.write(analysis_document)
+                            print(f"--- Analysis document saved to: {analysis_path} ---")
+                        except IOError as e:
+                            print(f"警告: 分析ドキュメントの保存に失敗しました: {e}")
+
+                    # Agent 2: 完全スクリプト生成（従来のask相当、分析ドキュメントを指示として使用）
+                    answer = ask(analysis_document, original_code=original_code, reference_code=reference_code, llm=llm)
+                    script_code = None  # extract_script_codeで後処理
+
+                else:
+                    # off: 従来の1エージェント
+                    answer = ask(question, original_code=original_code, reference_code=reference_code, llm=llm)
+                    script_code = None
+
             else:
                 # 修正ループ
                 print(f"\n=== Attempt {attempt + 1}/{max_retries + 1}: Self-Correction ===")
-                
+
                 if not current_code or not error_output:
                     print("エラー: 修正に必要な情報が不足しています。")
                     break
-                
-                # エラー情報を解析
+
                 error_line_info = parse_traceback(error_output)
                 bracket_context = extract_bracket_failure_context(current_code, error_line_info)
-                
-                # 修正を依頼
-                current_code = fix_bracket_code(
-                    current_code,
-                    error_output,
-                    error_line_info,
-                    bracket_context,
-                    reference_code,
-                    llm=llm
-                )
-                answer = None
-            
+
+                if pipeline_mode == "three" and analysis_document:
+                    # 3-agentエラー修正: Agent 2 をエラーコンテキスト付きで再実行 → 元コードにマージ
+                    error_ctx = {
+                        "stderr": error_output,
+                        "line_number": error_line_info.get("line_number", "unknown"),
+                        "error_line": bracket_context.get("error_line", ""),
+                        "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
+                    }
+
+                    fixed_bracket_section = generate_bracket_section_with_error(
+                        analysis_document, reference_code, error_ctx, llm=llm,
+                        structure_summary=structure_summary,
+                    )
+                    # original_code にマージ（current_code ではなく）して前回の失敗コード蓄積を防ぐ
+                    script_code = merge_bracket_section(original_code, fixed_bracket_section)
+                    current_code = script_code
+                    answer = None
+                else:
+                    current_code = fix_bracket_code(
+                        current_code,
+                        error_output,
+                        error_line_info,
+                        bracket_context,
+                        reference_code,
+                        llm=llm
+                    )
+                    answer = None
+                    script_code = current_code
+
+
             # スクリプト抽出と保存
             if output_path:
                 try:
                     if attempt == 0:
-                        script_code = extract_script_code(answer)
-                        if not script_code:
-                            print("\n--- Generated Answer (script not found) ---")
-                            print(answer)
-                            print(f"\n警告: スクリプトコードが見つからなかったため、ファイル '{output_path}' には保存されませんでした。")
-                            break
+                        if pipeline_mode == "three":
+                            # script_codeはすでにマージ済み
+                            if not script_code:
+                                print("警告: ブラケットセクションのマージに失敗しました。")
+                                break
+                        elif script_code is None:
+                            # two / off モード: answerからコードを抽出
+                            script_code = extract_script_code(answer)
+                            if not script_code:
+                                print("\n--- Generated Answer (script not found) ---")
+                                print(answer)
+                                print(f"\n警告: スクリプトコードが見つからなかったため、ファイル '{output_path}' には保存されませんでした。")
+                                break
                     else:
                         script_code = current_code
-                    
+
                     if script_code:
                         current_code = script_code
-                        
-                        # ファイル保存
+
                         save_script_file(output_path, script_code, attempt, keep_attempts)
-                        
-                        # エラーログの保存（修正ループの場合）
+
                         if keep_attempts and attempt > 0 and error_output:
                             save_error_log(output_path, error_output, attempt)
-                        
-                        # 初回のみ説明を表示
-                        if attempt == 0:
-                            explanation = extract_explanation(answer)
+
+                        if attempt == 0 and pipeline_mode != "three":
+                            explanation = extract_explanation(answer) if answer else None
                             if explanation:
                                 print("\n--- Script Explanation ---")
                                 print(explanation)
-                        
-                        # 実行（--no-execが指定されていない場合）
+
                         if not no_exec:
                             success, stdout, stderr, returncode = run_script(output_path, timeout_sec)
-                            
+
                             if success:
                                 print("\n--- Execution Successful ---")
                                 if stdout:
@@ -592,13 +1040,12 @@ def process_generation_loop(
                                 if stderr:
                                     print(stderr)
                                 error_output = stderr
-                                
+
                                 if attempt == max_retries:
                                     print("\n--- Max retries reached. Final script saved. ---")
                                     if keep_attempts and error_output:
                                         save_error_log(output_path, error_output)
                         else:
-                            # --no-execが指定されている場合は実行せず終了
                             print("\n--- Script saved (execution skipped by --no-exec) ---")
                             break
                 except FileOperationError as e:
@@ -608,11 +1055,65 @@ def process_generation_loop(
                     print(f"エラー: 出力処理中に予期せぬエラーが発生しました: {e}")
                     sys.exit(1)
             else:
-                # 出力ファイルが指定されていない場合は、従来通り全体を出力
                 if attempt == 0:
-                    print("\n--- Generated Answer ---")
-                    print(answer)
+                    if pipeline_mode == "three":
+                        print("\n--- Generated Bracket Section (merged) ---")
+                        print(script_code[:2000] if script_code else "(empty)")
+                    else:
+                        print("\n--- Generated Answer ---")
+                        print(answer)
                 break
+
+
+def _validate_and_fix_bracket(
+    bracket_section: str,
+    structure: dict,
+    analysis_document: str,
+    reference_code: Optional[str],
+    structure_summary: str,
+    llm,
+) -> str:
+    """生成されたブラケットセクションをバリデーションし、必要に応じて自動修正またはLLM再生成する"""
+    issues = validate_bracket_section(bracket_section, structure)
+    if not issues:
+        print("--- [Validation] No issues found ---")
+        return bracket_section
+
+    critical_issues = [i for i in issues if i["level"] == "error"]
+    warnings = [i for i in issues if i["level"] == "warning"]
+
+    if warnings:
+        for w in warnings:
+            print(f"--- [Validation Warning] {w['message']} ---")
+
+    if not critical_issues:
+        return bracket_section
+
+    # 自動修正を試行
+    print(f"--- [Validation] Found {len(critical_issues)} critical issues, attempting auto-fix ---")
+    fixed = auto_fix_bracket_section(bracket_section, issues)
+
+    # 再バリデーション
+    remaining = validate_bracket_section(fixed, structure)
+    remaining_critical = [r for r in remaining if r["level"] == "error"]
+
+    if not remaining_critical:
+        print("--- [Validation] Auto-fix resolved all issues ---")
+        return fixed
+
+    # 自動修正で解決しきれない場合、LLMに再生成を依頼
+    print(f"--- [Validation] {len(remaining_critical)} issues remain after auto-fix, requesting LLM re-generation ---")
+    error_ctx = {
+        "stderr": "\n".join([f"Validation Error: {i['message']}" for i in remaining_critical]),
+        "line_number": remaining_critical[0].get("line", "unknown"),
+        "error_line": "",
+        "bracket_param_section": bracket_section,
+    }
+    regenerated = generate_bracket_section_with_error(
+        analysis_document, reference_code, error_ctx, llm=llm,
+        structure_summary=structure_summary,
+    )
+    return regenerated
 
 
 if __name__ == "__main__":
@@ -676,6 +1177,18 @@ if __name__ == "__main__":
         default="gpt",
         help="使用するLLMモデル（デフォルト: gpt）。'gpt' = GPT-5.1, 'gemini' = Gemini 3 Pro Preview"
     )
+    parser.add_argument(
+        "--pipeline-mode",
+        choices=["off", "two", "three", "batch"],
+        default="three",
+        help=(
+            "パイプラインモード（デフォルト: three）。\n"
+            "  batch: Agent1(分析) → Agent2(JSON/グループ単位) → テンプレート展開 → 逐次実行（推奨）\n"
+            "  three: Agent1(分析) → Agent2(ブラケットセクション) → プログラムマージ\n"
+            "  two:   Agent1(分析) → Agent2(完全スクリプト生成)\n"
+            "  off:   従来の1エージェント"
+        )
+    )
     
     args = parser.parse_args()
 
@@ -709,7 +1222,8 @@ if __name__ == "__main__":
             timeout_sec=args.timeout_sec,
             keep_attempts=args.keep_attempts,
             no_exec=args.no_exec,
-            llm=llm
+            llm=llm,
+            pipeline_mode=args.pipeline_mode,
         )
     
     except FileOperationError as e:
