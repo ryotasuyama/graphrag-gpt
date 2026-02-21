@@ -225,6 +225,117 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
     return result
 
 
+def remove_bracket_definition_block(full_code: str, bracket_param_name: str) -> str:
+    """
+    ブラケット定義ブロック全体を削除します。
+
+    bracketPram{X} = part.CreateBracketParam() から始まるブロック全体を削除し、
+    対応する bracket{Y} = part.CreateBracket(bracketPram{X}, ...) も削除します。
+
+    Args:
+        full_code: スクリプト全体のコード
+        bracket_param_name: 削除対象のブラケットパラメータ名（例: "bracketPram5"）
+
+    Returns:
+        削除後のコード（削除されない場合は元のコード）
+    """
+    lines = full_code.split('\n')
+
+    # 定義行を探す: bracketPram5 = part.CreateBracketParam()
+    definition_pattern = rf'^\s*{re.escape(bracket_param_name)}\s*=\s*part\.CreateBracketParam\(\)'
+    definition_line_idx = None
+
+    for i, line in enumerate(lines):
+        if re.match(definition_pattern, line):
+            definition_line_idx = i
+            break
+
+    if definition_line_idx is None:
+        return full_code  # 定義が見つからない場合は変更なし
+
+    lines_to_remove = {definition_line_idx}
+
+    # bracketPram{X}. で始まる行をすべて削除（連続する設定行）
+    for i in range(definition_line_idx + 1, len(lines)):
+        line = lines[i]
+        # bracketPram{X}.SetXXX(...) などの行をキャッチ
+        if re.match(rf'^\s*{re.escape(bracket_param_name)}\.', line):
+            lines_to_remove.add(i)
+        elif line.strip() == '':
+            # 空行はスキップして続ける
+            continue
+        else:
+            # bracketPram{X}. 以外の行が出現したらブロック終了
+            break
+
+    # bracket{Y} = part.CreateBracket(bracketPram{X}, ...) を削除
+    # bracketPram5 -> bracketPram の部分から数字を抽出
+    bracket_num_match = re.search(r'\d+|[A-Z]\d+', bracket_param_name)
+    if bracket_num_match:
+        bracket_num = bracket_num_match.group()
+        bracket_var_pattern = rf'^\s*bracket{re.escape(bracket_num)}\s*=\s*part\.CreateBracket\(\s*{re.escape(bracket_param_name)}'
+
+        for i, line in enumerate(lines):
+            if re.match(bracket_var_pattern, line):
+                lines_to_remove.add(i)
+                break
+
+    # 削除対象の行を除去
+    result_lines = [line for i, line in enumerate(lines) if i not in lines_to_remove]
+    result_code = '\n'.join(result_lines)
+
+    if result_code != full_code:
+        print(f"--- Removed bracket definition block: {bracket_param_name} ---")
+
+    return result_code
+
+
+def run_script_from_string(script_code: str, timeout_sec: int = DEFAULT_TIMEOUT_SEC) -> Tuple[bool, str, str, int]:
+    """
+    スクリプトコード文字列を一時ファイルに保存して実行します。
+
+    Args:
+        script_code: 実行するスクリプトコード
+        timeout_sec: タイムアウト秒数（デフォルト: 600秒）
+
+    Returns:
+        (success: bool, stdout: str, stderr: str, returncode: int)
+    """
+    import tempfile
+
+    try:
+        # 一時ファイルにコードを保存
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as tmp:
+            tmp.write(script_code)
+            tmp_path = tmp.name
+
+        try:
+            print(f"--- Executing temporary script: {tmp_path} ---")
+            result = subprocess.run(
+                [sys.executable, tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=timeout_sec
+            )
+
+            if result.returncode == 0:
+                return True, result.stdout, result.stderr, result.returncode
+            else:
+                return False, result.stdout, result.stderr, result.returncode
+        finally:
+            # 一時ファイルを削除
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+    except subprocess.TimeoutExpired:
+        error_msg = f"Script execution timed out after {timeout_sec} seconds."
+        return False, "", error_msg, -1
+    except Exception as e:
+        error_msg = f"Error executing script from string: {str(e)}"
+        return False, "", error_msg, -1
+
+
 def ask(question: str, original_code: str, reference_code: Optional[str] = None, llm=None) -> str:
     """
     プロンプトのみを使用して質問に回答します。
@@ -662,32 +773,64 @@ def process_generation_loop(
                 error_line_info = parse_traceback(error_output)
                 bracket_context = extract_bracket_failure_context(current_code, error_line_info)
 
-                if pipeline_mode == "three" and analysis_document:
-                    # 3-agentエラー修正: Agent 2 をエラーコンテキスト付きで再実行 → 元コードにマージ
-                    error_ctx = {
-                        "stderr": error_output,
-                        "line_number": error_line_info.get("line_number", "unknown"),
-                        "error_line": bracket_context.get("error_line", ""),
-                        "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
-                    }
-                    fixed_bracket_section = generate_bracket_section_with_error(
-                        analysis_document, reference_code, error_ctx, llm=llm
-                    )
-                    # original_code にマージ（current_code ではなく）して前回の失敗コード蓄積を防ぐ
-                    script_code = merge_bracket_section(original_code, fixed_bracket_section)
-                    current_code = script_code
-                    answer = None
-                else:
-                    current_code = fix_bracket_code(
-                        current_code,
-                        error_output,
-                        error_line_info,
-                        bracket_context,
-                        reference_code,
-                        llm=llm
-                    )
-                    answer = None
-                    script_code = current_code
+                # ブラケット削除試行（試行回数を消費しない）
+                bracket_param_name = bracket_context.get('bracket_param_name')
+                bracket_removal_succeeded = False
+                if bracket_param_name:
+                    print(f"--- Attempting bracket removal: {bracket_param_name} ---")
+                    code_without_bracket = remove_bracket_definition_block(current_code, bracket_param_name)
+
+                    if code_without_bracket != current_code:  # 実際に削除が行われた
+                        success, stdout, stderr, returncode = run_script_from_string(code_without_bracket, timeout_sec)
+
+                        if success:
+                            # 削除版が成功したら、それを保存して終了
+                            current_code = code_without_bracket
+                            bracket_removal_succeeded = True
+                            print(f"--- Bracket removal successful ---")
+
+                            if output_path:
+                                try:
+                                    save_script_file(output_path, code_without_bracket, attempt, keep_attempts)
+                                    print(f"--- Bracket-removed version saved ---")
+                                except FileOperationError as e:
+                                    print(f"エラー: {e}")
+                                    sys.exit(1)
+
+                            break  # 削除版が成功したので修正ループを終了
+                        else:
+                            print(f"--- Bracket removal execution also failed. Proceeding with LLM retry. ---")
+                            # 削除版も失敗したので、LLMリトライを続行
+                            error_output = stderr
+
+                # LLMリトライ（削除試行が失敗または実施されなかった場合）
+                if not bracket_removal_succeeded:
+                    if pipeline_mode == "three" and analysis_document:
+                        # 3-agentエラー修正: Agent 2 をエラーコンテキスト付きで再実行 → 元コードにマージ
+                        error_ctx = {
+                            "stderr": error_output,
+                            "line_number": error_line_info.get("line_number", "unknown"),
+                            "error_line": bracket_context.get("error_line", ""),
+                            "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
+                        }
+                        fixed_bracket_section = generate_bracket_section_with_error(
+                            analysis_document, reference_code, error_ctx, llm=llm
+                        )
+                        # original_code にマージ（current_code ではなく）して前回の失敗コード蓄積を防ぐ
+                        script_code = merge_bracket_section(original_code, fixed_bracket_section)
+                        current_code = script_code
+                        answer = None
+                    else:
+                        current_code = fix_bracket_code(
+                            current_code,
+                            error_output,
+                            error_line_info,
+                            bracket_context,
+                            reference_code,
+                            llm=llm
+                        )
+                        answer = None
+                        script_code = current_code
 
             # スクリプト抽出と保存
             if output_path:
