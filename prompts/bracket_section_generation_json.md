@@ -24,10 +24,10 @@
 - `thickness`: プロファイルのProfileParamsの板厚値（文字列、例: `"9.9999999999999982"`）
 - `bracket_type`: 1505（PLS×FL）または 1501（FL×FL）を確認・必要に応じて変更
 - `bracket_params`: BracketType 1505の場合 `["200"]`（BracketType 1501には含めない）
-- `sf1_dimension_type`: Sf1 寸法タイプ（例: 1541）
-- `sf1_dimension_params`: Sf1 寸法パラメータ（例: `["0", "100"]`）
-- `sf2_dimension_type`: Sf2 寸法タイプ（例: 1531）
-- `sf2_dimension_params`: Sf2 寸法パラメータ（例: `["200", "15"]`）
+- `sf1_dimension_type`: Sf1 寸法タイプ（例: 1541）→ 型番の意味は `bracket_type_reference.md` 参照
+- `sf1_dimension_params`: Sf1 寸法パラメータ（例: `["0", "100"]`）※型番ごとにパラメータ数が異なる
+- `sf2_dimension_type`: Sf2 寸法タイプ（例: 1531）→ 型番の意味は `bracket_type_reference.md` 参照
+- `sf2_dimension_params`: Sf2 寸法パラメータ（例: `["200", "15"]`）※型番ごとにパラメータ数が異なる
 - `flange_type`: DL02プロファイルの場合のみ設定（通常 `null`）
 - `rev_sf1` / `rev_sf2` / `rev_sf3`: 通常 `false`
 - `surfaces2_ref`: BracketType 1501の場合のみ必要（第2プロファイルの変数名、例: `"profile5[0]"`）

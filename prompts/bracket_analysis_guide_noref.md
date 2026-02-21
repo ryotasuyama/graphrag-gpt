@@ -14,11 +14,15 @@
 
 | 接続パターン | BracketType | Surfaces1 | Surfaces2 |
 |-------------|-------------|-----------|-----------|
-| Plate(PLS面) × Profile(FL面) | **1505** | `["PLS","False","False",nx,ny,nz,solidX]` | `[profileN[0]+",FL"]` |
-| Profile(FL面) × Profile(FL面) | **1501** | `[profileA[0]+",FL"]` | `[profileB[0]+",FL"]` |
+| (A) Plate(PLS面) × Profile(FL面) | **1505** | `["PLS","False","False",nx,ny,nz,solidX]` | `[profileN[0]+",FL"]` |
+| (B) Profile(FL面) × Profile(FL面) | **1501** | `[profileA[0]+",FL"]` | `[profileB[0]+",FL"]` |
+| (C) Profile板要素(PLS面) × Plate(PLS面) | **1505** | `["PLS","False","False",nx,ny,nz,profileXX[1]]` | `["PLS","False","False",nx2,ny2,nz2,solidY]` |
 
 - ProfileType 1002/1003 → 通常 **1505**（板に取り付くスティフナの端部）
 - 2つのプロファイルが交差する箇所 → **1501**
+- タイプ(C): AttachSurface が存在せず profileXX[1] が板要素として使われる場合（Sf1EndElements は **不要**）
+
+> 型番・パラメータの完全一覧は `bracket_type_reference.md` を参照してください。
 
 ### 3. Surfaces の構成方法
 

@@ -710,6 +710,10 @@ def process_generation_loop(
         error_output = None
         # 3-agentモード用: 分析ドキュメントを保持（エラー修正ループで再利用）
         analysis_document = None
+        # エラー履歴累積（three-agentモード用）
+        error_history: list = []           # {attempt, stderr, bracket_param_section} のリスト
+        same_error_count: int = 0          # 同一エラーが連続した回数
+        _prev_error_fingerprint: str = ""  # 前回エラーの識別文字列
 
         for attempt in range(max_retries + 1):
             if attempt == 0:
@@ -807,11 +811,39 @@ def process_generation_loop(
                 if not bracket_removal_succeeded:
                     if pipeline_mode == "three" and analysis_document:
                         # 3-agentエラー修正: Agent 2 をエラーコンテキスト付きで再実行 → 元コードにマージ
+
+                        # --- エラー履歴累積 ---
+                        current_bracket_param_section = bracket_context.get("bracket_param_definition", "")
+
+                        # 同一エラー検出: exception_type + message でフィンガープリントを作る
+                        _current_fingerprint = (
+                            (error_line_info.get("exception_type") or "") + "|" +
+                            (error_line_info.get("exception_message") or "")
+                        ) or error_output[:300]
+
+                        if _current_fingerprint == _prev_error_fingerprint:
+                            same_error_count += 1
+                        else:
+                            same_error_count = 1
+                            _prev_error_fingerprint = _current_fingerprint
+
+                        # 現在の試行をhistoryに追記（次のLLM呼び出しで参照される）
+                        error_history.append({
+                            "attempt": attempt,
+                            "stderr": error_output,
+                            "bracket_param_section": current_bracket_param_section,
+                        })
+
+                        # 同じエラーが2回以上連続 → 単一ブラケットモードへ
+                        single_bracket_mode = same_error_count >= 2
+
                         error_ctx = {
                             "stderr": error_output,
                             "line_number": error_line_info.get("line_number", "unknown"),
                             "error_line": bracket_context.get("error_line", ""),
-                            "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
+                            "bracket_param_section": current_bracket_param_section,
+                            "error_history": error_history,
+                            "single_bracket_mode": single_bracket_mode,
                         }
                         fixed_bracket_section = generate_bracket_section_with_error(
                             analysis_document, reference_code, error_ctx, llm=llm

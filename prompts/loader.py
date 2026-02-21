@@ -146,6 +146,27 @@ def _build_error_context_block(error_context: dict) -> str:
         "6. **向き（Orientation/Vector）**: 参照面の法線に対して不正でないか。\n"
     )
 
+    # 過去の試行履歴をレンダリング（2件以上ある場合のみ）
+    error_history = error_context.get("error_history", [])
+    if len(error_history) > 1:
+        history_lines = [
+            "## 過去の試行履歴\n\n"
+            "以下の試行はいずれも失敗しました。同じアプローチを繰り返さないでください。\n"
+        ]
+        # 最後のエントリは「現在の試行」として上部に既出のため除外
+        for entry in error_history[:-1]:
+            attempt_num = entry.get("attempt", "?")
+            past_stderr = entry.get("stderr", "")
+            past_section = entry.get("bracket_param_section", "")
+            truncated_stderr = past_stderr[:400] + ("..." if len(past_stderr) > 400 else "")
+            history_lines.append(
+                f"### 試行 {attempt_num} のエラー\n"
+                f"```\n{truncated_stderr}\n```\n\n"
+                f"### 試行 {attempt_num} で使用したブラケットパラメータ定義\n"
+                f"```python\n{past_section}\n```\n"
+            )
+        block += "\n\n" + "\n".join(history_lines)
+
     # COM例外の場合、追加のデバッグガイドを付与
     if "com_error" in stderr.lower() or "com" in stderr.lower():
         try:

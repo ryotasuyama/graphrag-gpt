@@ -13,7 +13,14 @@
 
 - **(A) Plate × Profile**: Surfaces1=PLS面（solidX参照）、Surfaces2=Profile FL面 → BracketType 1505
 - **(B) Profile × Profile**: Surfaces1=Profile FL面、Surfaces2=Profile FL面 → BracketType 1501
-- **(C) Profile板要素 × Plate**: Surfaces1=PLS面（profileXX[1]参照）、Surfaces2=PLS面（solidX参照）
+- **(C) Profile板要素 × Plate**: Surfaces1=PLS面（profileXX[1]参照）、Surfaces2=PLS面（solidX参照）→ BracketType 1505 ※Sf1EndElements 不要
+
+## BracketType 選択ルール
+
+- **デフォルト形状 1505**（形状名: 2-E、`BracketParams=["200"]`）と **1501**（形状名: 2-B、BracketParamsなし）を基本とする
+- 形状を変更する場合は `BracketType` と `BracketParams` のパラメータ数を同時に変更すること（型番ごとにパラメータ数が異なる）
+- 3面ブラケット（BracketType 1512〜1521）は `Surfaces3` が必要なため、自動生成では原則使用しない
+- 型番とパラメータの完全一覧は `bracket_type_reference.md` を参照すること
 
 ## ブラケット候補の探索基準
 
