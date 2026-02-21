@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "C:\Users\fsryo\AppData\Local\Temp\tmpu4gmp5kx.py", line 4123, in <module>
+    part.SetElementColor(bracket1,"0","255","255","0.19999998807907104")
+                         ^^^^^^^^
+NameError: name 'bracket1' is not defined
