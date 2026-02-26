@@ -202,6 +202,7 @@ def _get_graph_qa(llm):
             url=config.NEO4J_URI,
             username=config.NEO4J_USER,
             password=config.NEO4J_PASSWORD,
+            database=getattr(config, "NEO4J_DATABASE", "neo4j"),
         )
         _graph_qa = GraphCypherQAChain.from_llm(
             llm=llm,
