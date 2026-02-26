@@ -4,6 +4,12 @@
 import os
 from dotenv import load_dotenv
 
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
+
 load_dotenv()  # .env を読み込む
 
 NEO4J_URI      = os.getenv("NEO4J_URI")
