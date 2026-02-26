@@ -1,0 +1,288 @@
+{
+  "cypher_query": "MATCH (hp:HelpPage)-[:DEFINES]->(bst:BracketShapeType)\nWHERE toLower(hp.raw_text) CONTAINS \"ブラケット\" OR toLower(hp.title) CONTAINS \"ブラケット\" OR any(k IN hp.keywords WHERE toLower(k) CONTAINS \"ブラケット\")\nRETURN bst.id AS bracketShapeTypeId, bst.shape_name AS shapeName, bst.category AS category, bst.bracket_type AS bracketType, bst.bracket_params AS bracketParams, bst.usage_note AS usageNote, hp.id AS helpPageId, hp.title AS helpTitle, hp.summary AS helpSummary\nORDER BY bst.category, bst.shape_name",
+  "neo4j_result_count": 19,
+  "neo4j_results": [
+    {
+      "bracketShapeTypeId": "BracketShapeType_1501",
+      "shapeName": "2-B",
+      "category": "2面",
+      "bracketType": 1501,
+      "bracketParams": [],
+      "usageNote": "Profile FL × Profile FL の標準形",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1502",
+      "shapeName": "2-B",
+      "category": "2面",
+      "bracketType": 1502,
+      "bracketParams": [
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1503",
+      "shapeName": "2-C",
+      "category": "2面",
+      "bracketType": 1503,
+      "bracketParams": [
+        "D",
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1508",
+      "shapeName": "2-C2",
+      "category": "2面",
+      "bracketType": 1508,
+      "bracketParams": [
+        "D",
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1504",
+      "shapeName": "2-D",
+      "category": "2面",
+      "bracketType": 1504,
+      "bracketParams": [
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1505",
+      "shapeName": "2-E",
+      "category": "2面",
+      "bracketType": 1505,
+      "bracketParams": [
+        "R"
+      ],
+      "usageNote": "Plate PLS × Profile FL の標準形",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1506",
+      "shapeName": "2-F",
+      "category": "2面",
+      "bracketType": 1506,
+      "bracketParams": [
+        "D",
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1507",
+      "shapeName": "2-G",
+      "category": "2面",
+      "bracketType": 1507,
+      "bracketParams": [
+        "D",
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1509",
+      "shapeName": "2-G2",
+      "category": "2面",
+      "bracketType": 1509,
+      "bracketParams": [
+        "D",
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1512",
+      "shapeName": "3-B",
+      "category": "3面",
+      "bracketType": 1512,
+      "bracketParams": [
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1513",
+      "shapeName": "3-C",
+      "category": "3面",
+      "bracketType": 1513,
+      "bracketParams": [
+        "D",
+        "R"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1514",
+      "shapeName": "3-D",
+      "category": "3面",
+      "bracketType": 1514,
+      "bracketParams": [
+        "D",
+        "R1",
+        "R2",
+        "a1",
+        "a2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1515",
+      "shapeName": "3-E",
+      "category": "3面",
+      "bracketType": 1515,
+      "bracketParams": [
+        "D"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1516",
+      "shapeName": "3-F",
+      "category": "3面",
+      "bracketType": 1516,
+      "bracketParams": [
+        "D",
+        "R1",
+        "R2",
+        "L1",
+        "L2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1517",
+      "shapeName": "3-G",
+      "category": "3面",
+      "bracketType": 1517,
+      "bracketParams": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1518",
+      "shapeName": "3-H",
+      "category": "3面",
+      "bracketType": 1518,
+      "bracketParams": [
+        "C1",
+        "C2",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1519",
+      "shapeName": "3-I",
+      "category": "3面",
+      "bracketType": 1519,
+      "bracketParams": [
+        "C1",
+        "C2",
+        "C3",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1520",
+      "shapeName": "3-J",
+      "category": "3面",
+      "bracketType": 1520,
+      "bracketParams": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    },
+    {
+      "bracketShapeTypeId": "BracketShapeType_1521",
+      "shapeName": "3-K",
+      "category": "3面",
+      "bracketType": 1521,
+      "bracketParams": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usageNote": "",
+      "helpPageId": "cmd_ship_bracket",
+      "helpTitle": "ブラケット",
+      "helpSummary": "ブラケットを作成します。（２面、３面間に板形状を作成します。）"
+    }
+  ]
+}

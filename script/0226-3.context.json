@@ -1,0 +1,56 @@
+{
+  "cypher_query": "MATCH (m:Method)\nWHERE toLower(m.name) CONTAINS toLower('ブラケット') OR toLower(m.description) CONTAINS toLower('ブラケット')\nOPTIONAL MATCH (m)-[:BELONGS_TO]->(o:Object)\nOPTIONAL MATCH (m)-[:HAS_PARAMETER]->(p:Parameter)-[:HAS_TYPE]->(pt:DataType)\nOPTIONAL MATCH (m)-[:HAS_RETURNS]->(r:ReturnValue)-[:HAS_TYPE]->(rt:DataType)\nWITH m, o,\n     collect(DISTINCT {id: p.id, name: p.name, description: p.description, order: p.order, typeId: pt.id, typeName: pt.name}) AS parameters,\n     collect(DISTINCT {id: r.id, description: r.description, typeId: rt.id, typeName: rt.name}) AS returns\nRETURN m.id AS methodId, m.name AS methodName, m.description AS methodDescription,\n       o.id AS objectId, o.name AS objectName,\n       parameters, returns\nORDER BY objectName, methodName",
+  "neo4j_result_count": 2,
+  "neo4j_results": [
+    {
+      "methodId": "CreateBracket",
+      "methodName": "CreateBracket",
+      "methodDescription": "船殻のブラケットソリッド要素を作成する",
+      "objectId": "Part",
+      "objectName": "Part",
+      "parameters": [
+        {
+          "name": "bUpdate",
+          "typeName": "bool",
+          "description": "更新フラグ(未実装、使用しない)",
+          "typeId": "bool",
+          "id": "CreateBracket_bUpdate",
+          "order": 1
+        }
+      ],
+      "returns": [
+        {
+          "typeName": "作成したソリッド要素のID",
+          "description": "作成したソリッド要素のID",
+          "typeId": "作成したソリッド要素のID",
+          "id": "CreateBracket_ReturnValue"
+        }
+      ]
+    },
+    {
+      "methodId": "CreateBracketParam",
+      "methodName": "CreateBracketParam",
+      "methodDescription": "船殻のブラケット要素のパラメータオブジェクトの作成",
+      "objectId": "Part",
+      "objectName": "Part",
+      "parameters": [
+        {
+          "name": null,
+          "typeName": null,
+          "description": null,
+          "typeId": null,
+          "id": null,
+          "order": null
+        }
+      ],
+      "returns": [
+        {
+          "typeName": "ブラケット要素のパラメータオブジェクト",
+          "description": "ブラケット要素のパラメータオブジェクト",
+          "typeId": "ブラケット要素のパラメータオブジェクト",
+          "id": "CreateBracketParam_ReturnValue"
+        }
+      ]
+    }
+  ]
+}

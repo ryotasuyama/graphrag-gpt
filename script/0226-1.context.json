@@ -1,5 +1,16 @@
 {
-  "cypher_query": "MATCH (n)\nWHERE toLower(coalesce(n.name,'')) CONTAINS 'ブラケット' OR toLower(coalesce(n.title,'')) CONTAINS 'ブラケット' OR toLower(coalesce(n.description,'')) CONTAINS 'ブラケット'\nRETURN n\nLIMIT 25",
-  "neo4j_result_count": 0,
-  "neo4j_results": []
+  "cypher_query": "MATCH (m:Method)\nWHERE toLower(m.name) CONTAINS toLower('ブラケット')\n   OR toLower(m.description) CONTAINS toLower('ブラケット')\nRETURN m.id AS methodId, m.name AS methodName, m.description AS methodDescription\nORDER BY m.name ASC",
+  "neo4j_result_count": 2,
+  "neo4j_results": [
+    {
+      "methodId": "CreateBracket",
+      "methodName": "CreateBracket",
+      "methodDescription": "船殻のブラケットソリッド要素を作成する"
+    },
+    {
+      "methodId": "CreateBracketParam",
+      "methodName": "CreateBracketParam",
+      "methodDescription": "船殻のブラケット要素のパラメータオブジェクトの作成"
+    }
+  ]
 }

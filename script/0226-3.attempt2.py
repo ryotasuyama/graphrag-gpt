@@ -4303,7 +4303,7 @@ part.SetElementColor(bracket7,"0","255","255","0.19999998807907104")
 
 bracketPram8 = part.CreateBracketParam()
 bracketPram8.DefinitionType=1
-bracketPram8.BracketName="HK.Casing.Deck.D.FR13P"
+bracketPram8.BracketName="HK.Casing.Deck.D.FR13P_2"
 bracketPram8.MaterialName="SS400"
 bracketPram8.BaseElement=profile5[0]
 bracketPram8.UseSideSheetForPlane=False
@@ -4501,7 +4501,7 @@ part.SetElementColor(bracket15,"0","255","255","0.19999998807907104")
 
 bracketPram16 = part.CreateBracketParam()
 bracketPram16.DefinitionType=1
-bracketPram16.BracketName="HK.Casing.Deck.D.FR09P"
+bracketPram16.BracketName="HK.Casing.Deck.D.FR09P_2"
 bracketPram16.MaterialName="SS400"
 bracketPram16.BaseElement=profile20[0]
 bracketPram16.UseSideSheetForPlane=False
