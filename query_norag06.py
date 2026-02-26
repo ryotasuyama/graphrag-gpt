@@ -11,6 +11,7 @@ import textwrap
 import config
 import re
 import subprocess
+import json
 from typing import Optional, Tuple
 
 from langchain_openai import ChatOpenAI
@@ -210,6 +211,7 @@ def _get_graph_qa(llm):
             qa_prompt=QA_PROMPT,
             allow_dangerous_requests=True,
             top_k=GRAPH_SEARCH_TOP_K,
+            return_intermediate_steps=True,
         )
     return _graph_qa
 
@@ -256,6 +258,44 @@ def execute_graph_qa(question: str, llm, is_retry: bool = False) -> dict:
     except Exception as e:
         print(f"\n--- [Error] 予期せぬエラーが発生しました: {e} ---")
         raise e
+
+
+def save_context_file(intermediate_steps: list, output_path: Optional[str]) -> None:
+    """
+    グラフ検索の中間ステップ（CypherクエリとNeo4j結果）をJSONファイルに保存する。
+    output_path が None の場合はコンソールに出力する。
+    """
+    try:
+        cypher_query = ""
+        neo4j_results = []
+
+        if intermediate_steps and len(intermediate_steps) > 0:
+            step0 = intermediate_steps[0]
+            if isinstance(step0, dict):
+                cypher_query = step0.get('query', '')
+
+        if intermediate_steps and len(intermediate_steps) > 1:
+            step1 = intermediate_steps[1]
+            if isinstance(step1, dict):
+                neo4j_results = step1.get('context', [])
+
+        context_data = {
+            "cypher_query": cypher_query,
+            "neo4j_result_count": len(neo4j_results),
+            "neo4j_results": neo4j_results,
+        }
+
+        if output_path:
+            context_path = output_path.replace('.py', '.context.json')
+            with open(context_path, 'w', encoding='utf-8') as f:
+                json.dump(context_data, f, ensure_ascii=False, indent=2)
+            print(f"--- Graph context saved to: {context_path} ---")
+        else:
+            print("\n--- [Graph Context] ---")
+            print(json.dumps(context_data, ensure_ascii=False, indent=2))
+
+    except Exception as e:
+        print(f"警告: グラフコンテキストの保存に失敗しました: {e}")
 
 
 # ---------- LLM 生成 ----------
@@ -445,7 +485,7 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
     return result
 
 
-def ask(question: str, original_code: str, reference_code: Optional[str] = None, llm=None, use_graph: bool = False) -> str:
+def ask(question: str, original_code: str, reference_code: Optional[str] = None, llm=None, use_graph: bool = False, output_path: Optional[str] = None) -> str:
     """
     質問に回答します。use_graph=True のときはグラフ検索を使用し、False のときはプロンプトのみを使用します。
     original_codeは必須です。それを編集するタスクとして扱います。
@@ -500,6 +540,8 @@ def ask(question: str, original_code: str, reference_code: Optional[str] = None,
     if use_graph:
         print("--- [Route: graph] Running Graph Search ---")
         result = execute_graph_qa(final_question, llm=llm)
+        intermediate_steps = result.get('intermediate_steps', [])
+        save_context_file(intermediate_steps, output_path)
         return result['result']
     else:
         print("--- [Route: prompt-only] Running LLM Generation ---")
@@ -829,9 +871,27 @@ def process_generation_loop(
                 print(f"\n=== Attempt {attempt + 1}/{max_retries + 1}: Initial Generation ===")
 
                 if pipeline_mode == "three":
+                    # Step 0: グラフ検索（use_graph=True の場合のみ）
+                    augmented_question = question
+                    if use_graph:
+                        print("--- [Step 0] Running Graph Search for context ---")
+                        graph_result = execute_graph_qa(question, llm=llm)
+                        graph_steps = graph_result.get('intermediate_steps', [])
+                        save_context_file(graph_steps, output_path)
+
+                        neo4j_context = []
+                        if len(graph_steps) > 1 and isinstance(graph_steps[1], dict):
+                            neo4j_context = graph_steps[1].get('context', [])
+                        if neo4j_context:
+                            augmented_question = (
+                                f"{question}\n\n"
+                                f"## ナレッジグラフから取得した関連情報\n"
+                                f"{json.dumps(neo4j_context, ensure_ascii=False, indent=2)}"
+                            )
+
                     # Agent 1: 分析ドキュメント生成
                     analysis_document = analyze_bracket_placement(
-                        question, original_code, reference_code, llm=llm
+                        augmented_question, original_code, reference_code, llm=llm
                     )
                     # 分析ドキュメントの保存
                     if output_path:
@@ -866,12 +926,12 @@ def process_generation_loop(
                             print(f"警告: 分析ドキュメントの保存に失敗しました: {e}")
 
                     # Agent 2: 完全スクリプト生成（従来のask相当、分析ドキュメントを指示として使用）
-                    answer = ask(analysis_document, original_code=original_code, reference_code=reference_code, llm=llm, use_graph=use_graph)
+                    answer = ask(analysis_document, original_code=original_code, reference_code=reference_code, llm=llm, use_graph=use_graph, output_path=output_path)
                     script_code = None  # extract_script_codeで後処理
 
                 else:
                     # off: 従来の1エージェント
-                    answer = ask(question, original_code=original_code, reference_code=reference_code, llm=llm, use_graph=use_graph)
+                    answer = ask(question, original_code=original_code, reference_code=reference_code, llm=llm, use_graph=use_graph, output_path=output_path)
                     script_code = None
 
             else:

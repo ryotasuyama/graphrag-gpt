@@ -113,7 +113,7 @@ Cypher を直接書くのは以下の2箇所のみ:
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `ingest.py` | `_parse_help_directory()`, `_extract_help_summaries_with_llm()`, `_help_pages_to_triples()`, `_parse_bracket_type_reference()` を追加。`_build_and_load_neo4j()` に統合 |
+| `ingest0226-1.py` | `_parse_help_directory()`, `_extract_help_summaries_with_llm()`, `_help_pages_to_triples()`, `_parse_bracket_type_reference()` を追加。`_build_and_load_neo4j()` に統合 |
 | `query_graph.py` | `_retrieve_help_context()` 追加、`ask()` 内で呼び出し。`CYPHER_GENERATION_TEMPLATE_JP` のスキーマ説明に新ノード型を追記 |
 | `prompts/loader.py` | `is_bracket_task()` パターンを参考に `is_help_relevant()` 追加 |
 
