@@ -1,0 +1,231 @@
+{
+  "cypher_query": "MATCH (b:BracketShapeType)\nRETURN b.id AS id, b.shape_name AS shape_name, b.category AS category, b.bracket_type AS bracket_type, b.bracket_params AS bracket_params, b.usage_note AS usage_note\nORDER BY b.shape_name\nLIMIT 20",
+  "neo4j_result_count": 19,
+  "neo4j_results": [
+    {
+      "id": "BracketShapeType_1501",
+      "shape_name": "2-B",
+      "category": "2面",
+      "bracket_type": 1501,
+      "bracket_params": [],
+      "usage_note": "Profile FL × Profile FL の標準形"
+    },
+    {
+      "id": "BracketShapeType_1502",
+      "shape_name": "2-B",
+      "category": "2面",
+      "bracket_type": 1502,
+      "bracket_params": [
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1503",
+      "shape_name": "2-C",
+      "category": "2面",
+      "bracket_type": 1503,
+      "bracket_params": [
+        "D",
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1508",
+      "shape_name": "2-C2",
+      "category": "2面",
+      "bracket_type": 1508,
+      "bracket_params": [
+        "D",
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1504",
+      "shape_name": "2-D",
+      "category": "2面",
+      "bracket_type": 1504,
+      "bracket_params": [
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1505",
+      "shape_name": "2-E",
+      "category": "2面",
+      "bracket_type": 1505,
+      "bracket_params": [
+        "R"
+      ],
+      "usage_note": "Plate PLS × Profile FL の標準形"
+    },
+    {
+      "id": "BracketShapeType_1506",
+      "shape_name": "2-F",
+      "category": "2面",
+      "bracket_type": 1506,
+      "bracket_params": [
+        "D",
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1507",
+      "shape_name": "2-G",
+      "category": "2面",
+      "bracket_type": 1507,
+      "bracket_params": [
+        "D",
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1509",
+      "shape_name": "2-G2",
+      "category": "2面",
+      "bracket_type": 1509,
+      "bracket_params": [
+        "D",
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1512",
+      "shape_name": "3-B",
+      "category": "3面",
+      "bracket_type": 1512,
+      "bracket_params": [
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1513",
+      "shape_name": "3-C",
+      "category": "3面",
+      "bracket_type": 1513,
+      "bracket_params": [
+        "D",
+        "R"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1514",
+      "shape_name": "3-D",
+      "category": "3面",
+      "bracket_type": 1514,
+      "bracket_params": [
+        "D",
+        "R1",
+        "R2",
+        "a1",
+        "a2"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1515",
+      "shape_name": "3-E",
+      "category": "3面",
+      "bracket_type": 1515,
+      "bracket_params": [
+        "D"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1516",
+      "shape_name": "3-F",
+      "category": "3面",
+      "bracket_type": 1516,
+      "bracket_params": [
+        "D",
+        "R1",
+        "R2",
+        "L1",
+        "L2"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1517",
+      "shape_name": "3-G",
+      "category": "3面",
+      "bracket_type": 1517,
+      "bracket_params": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1518",
+      "shape_name": "3-H",
+      "category": "3面",
+      "bracket_type": 1518,
+      "bracket_params": [
+        "C1",
+        "C2",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1519",
+      "shape_name": "3-I",
+      "category": "3面",
+      "bracket_type": 1519,
+      "bracket_params": [
+        "C1",
+        "C2",
+        "C3",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1520",
+      "shape_name": "3-J",
+      "category": "3面",
+      "bracket_type": 1520,
+      "bracket_params": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usage_note": ""
+    },
+    {
+      "id": "BracketShapeType_1521",
+      "shape_name": "3-K",
+      "category": "3面",
+      "bracket_type": 1521,
+      "bracket_params": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ],
+      "usage_note": ""
+    }
+  ]
+}
