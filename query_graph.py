@@ -11,7 +11,7 @@ import textwrap
 import config
 import re
 import subprocess
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from langchain_openai import ChatOpenAI
 
@@ -64,6 +64,13 @@ CYPHER_GENERATION_TEMPLATE_JP = """
 
     ## グラフスキーマ情報
     {schema}
+
+    ## 追加ノード型（Help / BracketType）
+    以下のノード型も検索可能です：
+    - `HelpPage`: ヘルプドキュメントのページ。プロパティ: id, file_name, title, page_type(cmd/about/sample), summary, keywords[], raw_text, source
+      - リレーション: -[:DESCRIBES]-> Object/Method, -[:RELATED_TO]-> HelpPage, -[:DEFINES]-> BracketShapeType
+    - `BracketShapeType`: ブラケット形状種別。プロパティ: id, bracket_type(int), shape_name, bracket_params[], category(2面/3面), usage_note
+    - `DimensionType`: 辺寸法基準型（Sf1/Sf2）。プロパティ: id, dim_type(int), shape_name, params[], usage_note
 
     ## クエリ生成の指示
     1.  **思考プロセスに従う:**
@@ -300,6 +307,115 @@ graph_qa = GraphCypherQAChain.from_llm(
     allow_dangerous_requests=True,
     top_k=GRAPH_SEARCH_TOP_K,
 )
+
+
+# ---------- Help コンテキスト取得 ----------
+
+_STOP_WORDS_EN = {
+    "the", "and", "for", "with", "this", "that", "from", "are", "has",
+    "will", "can", "please", "use", "add", "get", "set", "new",
+}
+
+
+def _extract_search_terms(text: str) -> List[str]:
+    """質問テキストから検索用キーワードを抽出する（LLM不使用）"""
+    terms: List[str] = []
+
+    # 英語単語（3文字以上）
+    for w in re.findall(r"[a-zA-Z]{3,}", text):
+        if w.lower() not in _STOP_WORDS_EN:
+            terms.append(w)
+
+    # カタカナ語（2文字以上）
+    terms.extend(re.findall(r"[\u30a0-\u30ff]{2,}", text))
+
+    # 漢字・ひらがな混じりの語（2文字以上、助詞的な短語を除く）
+    for w in re.findall(r"[\u4e00-\u9fff][\u3040-\u9fff\u4e00-\u9fff]*", text):
+        if len(w) >= 2:
+            terms.append(w)
+
+    # 重複除去・順序保持
+    seen: set = set()
+    result: List[str] = []
+    for t in terms:
+        if t not in seen:
+            seen.add(t)
+            result.append(t)
+    return result[:5]
+
+
+def _retrieve_help_context(
+    question: str,
+    reference_code: Optional[str] = None,
+) -> str:
+    """
+    Neo4j から関連 HelpPage / BracketShapeType コンテキストを取得して文字列で返す。
+
+    - ブラケットタスクの場合: BracketShapeType 一覧 + cmd_ship_bracket ページ summary を返す
+    - 共通: キーワードで HelpPage を検索し、マッチするページの title/summary を返す
+
+    HelpPage が Neo4j に存在しない場合（ingest0226-1.py 未実行）は空文字を返す。
+    """
+    from prompts.loader import is_bracket_task as _is_bracket_task
+
+    sections: List[str] = []
+
+    try:
+        is_bracket = _is_bracket_task(question, reference_code)
+
+        if is_bracket:
+            # --- ブラケット形状種別一覧を取得 ---
+            bt_rows = graph.query(
+                "MATCH (bt:BracketShapeType) "
+                "RETURN bt.bracket_type AS bt, bt.shape_name AS shape, "
+                "       bt.bracket_params AS params, bt.category AS cat, bt.usage_note AS note "
+                "ORDER BY bt.bracket_type"
+            )
+            if bt_rows:
+                lines = ["### ブラケット形状種別（BracketShapeType）"]
+                for r in bt_rows:
+                    params_str = ", ".join(r.get("params") or []) or "なし"
+                    note_str = f" ※{r['note']}" if r.get("note") else ""
+                    lines.append(
+                        f"- Type {r['bt']} ({r['shape']}) [{r['cat']}]"
+                        f" params=[{params_str}]{note_str}"
+                    )
+                sections.append("\n".join(lines))
+
+            # --- cmd_ship_bracket ページの summary ---
+            bp_rows = graph.query(
+                "MATCH (h:HelpPage {id: 'cmd_ship_bracket'}) "
+                "RETURN h.title AS title, h.summary AS summary"
+            )
+            if bp_rows and bp_rows[0].get("summary"):
+                sections.append(
+                    f"### ブラケットコマンド説明\n{bp_rows[0]['summary']}"
+                )
+
+        # --- キーワード検索（共通） ---
+        terms = _extract_search_terms(question)
+        for term in terms[:3]:
+            rows = graph.query(
+                "MATCH (h:HelpPage) "
+                "WHERE any(kw IN h.keywords WHERE toLower(kw) CONTAINS toLower($term)) "
+                "   OR toLower(h.title) CONTAINS toLower($term) "
+                "RETURN h.title AS title, h.summary AS summary "
+                "LIMIT 5",
+                {"term": term},
+            )
+            if rows:
+                lines = [f"### 関連ヘルプページ（キーワード: {term}）"]
+                for r in rows:
+                    if r.get("summary"):
+                        lines.append(f"- [{r['title']}] {r['summary']}")
+                if len(lines) > 1:
+                    sections.append("\n".join(lines))
+                break  # 最初にヒットしたキーワードで終了
+
+    except Exception as e:
+        print(f"--- [HelpContext] 取得スキップ（HelpPage未登録 or エラー）: {e} ---")
+
+    return "\n\n".join(sections)
 
 
 
@@ -571,6 +687,15 @@ def ask(question: str, original_code: str, reference_code: Optional[str] = None)
         - AddAttachSurfaces と End1/End2 を持つスティフナ（ProfileType 1002/1003 等）をブラケット候補として探索し、各端部（End1/End2）に漏れなく配置する。
         - BracketType や Sf1EndElements/Sf2EndElements は参考スクリプト・既存サンプルの値を最優先で踏襲し、未知のフィールドを創作しない。
         """
+
+    # Help コンテキストを取得して質問に付加する
+    help_ctx = _retrieve_help_context(question, reference_code=reference_code)
+    if help_ctx:
+        final_question = final_question + (
+            "\n\n## ヘルプDB参照コンテキスト（Neo4jから取得）\n"
+            + help_ctx
+        )
+        print("--- [HelpContext] Help context appended to question ---")
 
     print("--- [Route: graph] Running Graph Search ---")
     result = execute_graph_qa(final_question)

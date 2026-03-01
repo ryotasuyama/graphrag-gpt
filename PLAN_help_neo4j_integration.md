@@ -20,20 +20,19 @@
 **新ノード型:**
 
 ```
-HelpPage    {id, file_name, title, page_type, summary, keywords[], raw_text, source="help"}
-HelpSection {id, heading, content, order}
+HelpPage {id, file_name, title, page_type, summary, keywords[], raw_text, source="help"}
 ```
 
 - `page_type`: ファイル名プレフィックスで自動判定（`cmd_`/`about_`/`sample_`）
 - `keywords` / `summary`: Tier1（短い `cmd_` ページ）はノーLLM（タイトル・本文から機械的に生成）、Tier2（`about_`/`sample_`/長文）のみバッチLLMでスキーマ指定抽出
+- **`HelpSection` は採用しない**: `_retrieve_help_context()` のクエリは `HelpPage` の `summary` / `keywords` のみ参照するため、セクション粒度のノードは死蔵になる。ページ単位の粒度で十分。
 
 **新リレーション:**
 
 ```
-(HelpPage) -[:DESCRIBES]->   (Object | Method)    ← ファイル名→APIノード名マッチング
-(HelpPage) -[:HAS_SECTION]-> (HelpSection)
-(HelpPage) -[:RELATED_TO]->  (HelpPage)            ← HTML内 href から自動生成
-(HelpSection) -[:NEXT_SECTION]-> (HelpSection)
+(HelpPage) -[:DESCRIBES]->  (Object | Method)  ← ファイル名→APIノード名マッチング
+(HelpPage) -[:RELATED_TO]-> (HelpPage)          ← HTML内 href から自動生成
+(HelpPage) -[:DEFINES]->    (BracketShapeType)  ← Step 2 と連携
 ```
 
 **DESCRIBES リンク生成戦略:**
