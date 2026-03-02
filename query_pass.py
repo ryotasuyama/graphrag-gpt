@@ -1010,7 +1010,7 @@ def process_generation_loop(
                     if attempt == max_retries and bracket_param_name:
                         # 最終リトライ: LLM修正が全回失敗したため、ブラケットコードを削除（フォールバック）
                         print(f"--- [Fallback] LLM修正が {max_retries} 回失敗しました。'{bracket_param_name}' のコードブロックを削除します。 ---")
-                        script_code = remove_bracket_block(original_code, bracket_param_name)
+                        script_code = remove_bracket_block(current_code, bracket_param_name)
                         current_code = script_code
                         answer = None
                         bracket_removed = True
