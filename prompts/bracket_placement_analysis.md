@@ -27,9 +27,9 @@
 - （例: profile1〜5: Stiffener FL 型）
 
 ### ブラケット配置リスト
-| # | Surfaces1 | Surfaces2 | BracketType | BaseElement | 備考 |
-|---|-----------|-----------|-------------|-------------|------|
-| 1 | （例: solid1,PL） | （例: profile1[0],FL） | （例: 1505） | （例: profile1[0]） | （注意事項など） |
+| # | Surfaces1 | Surfaces2 | BracketType | BaseElement | Sf1EndElements | 備考 |
+|---|-----------|-----------|-------------|-------------|----------------|------|
+| 1 | （例: ["PLS","False","False","0","-0","-1",solid1]） | （例: profile1[0]+",FL"） | （例: 1505） | （例: profile1[0]） | （例: profile8[0]） | （注意事項など） |
 
 ### ループ構造方針
 - （例: profileN[0] を順番にループする）

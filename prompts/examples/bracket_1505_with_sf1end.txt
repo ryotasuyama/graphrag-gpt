@@ -1,0 +1,28 @@
+# BracketType 1505 (2件目の例): Plate(PLS面) × Profile(FL面)
+# 変数番号は連番にする (bracketPram2, bracket2, ...)
+# 同一 solid への複数ブラケット配置パターン
+bracketPram2 = part.CreateBracketParam()
+bracketPram2.DefinitionType=1
+bracketPram2.BracketName="HK.Casing.Wall.Side.FR11.Deck.CP"
+bracketPram2.MaterialName="SS400"
+bracketPram2.BaseElement=profile10[0]
+bracketPram2.UseSideSheetForPlane=False
+bracketPram2.Mold="+"
+bracketPram2.Thickness="9.9999999999999982"
+bracketPram2.BracketType=1505
+bracketPram2.BracketParams=["200"]
+bracketPram2.Scallop1Type=1801
+bracketPram2.Scallop1Params=["0"]
+bracketPram2.Scallop2Type=0
+bracketPram2.Surfaces1=["PLS","False","False","0","-0","-1",solid1]
+bracketPram2.RevSf1=False
+bracketPram2.Surfaces2=[profile10[0]+",FL"]
+bracketPram2.RevSf2=False
+bracketPram2.RevSf3=False
+bracketPram2.Sf1DimensionType=1541
+bracketPram2.Sf1DimensonParams=["0","100"]
+bracketPram2.Sf1EndElements=["PLS","False","False","-0","-1","-0",profile8[0]]
+bracketPram2.Sf2DimensionType=1531
+bracketPram2.Sf2DimensonParams=["200","15"]
+bracket2 = part.CreateBracket(bracketPram2,False)
+part.SetElementColor(bracket2,"0","255","255","0.19999998807907104")

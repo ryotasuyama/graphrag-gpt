@@ -1,6 +1,7 @@
-# BracketType 1501: Profile(FL面) x Profile(FL面)
-# BaseElement は Profile本体 (profileXX[0])
-# Surfaces1/Surfaces2 はどちらも Profile の FL面
+# BracketType 1501: Profile(FL面) × Profile(FL面)
+# BaseElement は Profile 本体 (profileXX[0])
+# Surfaces1/Surfaces2 はどちらも Profile の FL 面
+# 命名規則: "HK.<構造>.<部材名>.<位置>"
 bracketPram1 = part.CreateBracketParam()
 bracketPram1.DefinitionType=1
 bracketPram1.BracketName="HK.Casing.Wall.Fore.DL01.Deck.DP"

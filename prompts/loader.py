@@ -46,6 +46,35 @@ def extract_bracket_section_from_code(code: str) -> str:
     return ""
 
 
+def select_bracket_examples(candidates: list = None) -> list:
+    """
+    ブラケット候補リストに基づいて使用するコード例ファイル名を返す。
+    candidates が None または空の場合はデフォルト（全種類）を返す。
+    """
+    if not candidates:
+        return ["bracket_1505", "bracket_1505_with_sf1end", "bracket_1501"]
+
+    types = {c.get("bracket_type", 1505) for c in candidates}
+    result = []
+    if 1505 in types:
+        result.extend(["bracket_1505", "bracket_1505_with_sf1end"])
+    if 1501 in types:
+        result.append("bracket_1501")
+    return result or ["bracket_1505", "bracket_1505_with_sf1end", "bracket_1501"]
+
+
+def _append_bracket_examples(parts: list, candidates: list = None) -> None:
+    """ブラケット例ファイルを parts リストに追加するヘルパー"""
+    for example_name in select_bracket_examples(candidates):
+        example_code = load_example(example_name)
+        header_line = next(
+            (l.lstrip("# ").strip() for l in example_code.splitlines() if l.startswith("#")),
+            example_name,
+        )
+        parts.append(f"## 参考コード例（{header_line}）")
+        parts.append("```python\n" + example_code + "\n```")
+
+
 def build_analysis_prompt(
     instruction: str,
     original_code: str,
@@ -92,14 +121,12 @@ def build_bracket_section_prompt(
     analysis_document: str,
     reference_code: str = None,
     structure_summary: str = "",
+    candidates: list = None,
 ) -> str:
     """Agent 2: ブラケットセクション生成プロンプトを構築"""
     parts = [load_prompt("base_system")]
     parts.append(load_prompt("bracket_domain_rules"))
-    parts.append("## 参考コード例（BracketType 1505: PLS × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1505") + "\n```")
-    parts.append("## 参考コード例（BracketType 1501: Profile FL × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1501") + "\n```")
+    _append_bracket_examples(parts, candidates)
 
     reference_bracket_examples = ""
     if reference_code:
@@ -179,6 +206,11 @@ def _build_error_context_block(error_context: dict) -> str:
             "- **Surfaces1 のシート→ソリッド変換**: `extrude_sheetN` をSurfaces1に使用している場合、"
             "そのシートが `CreateThicken` でソリッド化されていれば `solidN` に置き換えてください。"
             "スクリプト構造情報のThickenセクションまたは候補テーブルの「Solid代替」列で対応を確認できます。\n"
+            "- **Sf1EndElements の参照先を確認**: `endElementVar` に指定したプロファイルが "
+            "Surfaces1 の板（solidX）の面上に存在するプロファイルかを確認してください。\n"
+            "  - Side FR → Deck 接続（1505）の場合: Deck 板上の DLxx/FRxx プロファイル（`profileN[0]`）を使います。\n"
+            "  - FR プロファイル自身の End1/End2 に指定した板要素（`extrude_sheetN`）ではありません。\n"
+            "  - 参考スクリプトに同型ブラケットがある場合は、その `Sf1EndElements` の値をそのまま使用してください。\n"
             "- **Sf1EndElements の法線方向を反転**: `RevSf1=True` を試すか、法線の符号を全て反転してください。\n"
             "- **BracketName の重複回避**: 各ブラケットに一意の BracketName を付けてください。\n"
         )
@@ -200,14 +232,12 @@ def build_bracket_section_prompt_with_error(
     reference_code: str = None,
     error_context: dict = None,
     structure_summary: str = "",
+    candidates: list = None,
 ) -> str:
     """Agent 2 (リトライ版): エラーコンテキスト付きでブラケットセクション生成プロンプトを構築"""
     parts = [load_prompt("base_system")]
     parts.append(load_prompt("bracket_domain_rules"))
-    parts.append("## 参考コード例（BracketType 1505: PLS × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1505") + "\n```")
-    parts.append("## 参考コード例（BracketType 1501: Profile FL × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1501") + "\n```")
+    _append_bracket_examples(parts, candidates)
 
     reference_bracket_examples = ""
     if reference_code:
@@ -336,10 +366,7 @@ def build_bracket_group_json_prompt(
     """
     parts = [load_prompt("base_system")]
     parts.append(load_prompt("bracket_domain_rules"))
-    parts.append("## 参考コード例（BracketType 1505: PLS × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1505") + "\n```")
-    parts.append("## 参考コード例（BracketType 1501: Profile FL × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1501") + "\n```")
+    _append_bracket_examples(parts, group.get("candidates"))
 
     reference_bracket_examples = ""
     if reference_code:
@@ -385,10 +412,7 @@ def build_bracket_group_json_prompt_with_error(
     """
     parts = [load_prompt("base_system")]
     parts.append(load_prompt("bracket_domain_rules"))
-    parts.append("## 参考コード例（BracketType 1505: PLS × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1505") + "\n```")
-    parts.append("## 参考コード例（BracketType 1501: Profile FL × Profile FL）")
-    parts.append("```python\n" + load_example("bracket_1501") + "\n```")
+    _append_bracket_examples(parts, group.get("candidates"))
 
     reference_bracket_examples = ""
     if reference_code:
@@ -455,10 +479,7 @@ def build_generation_prompt(question: str, is_bracket: bool) -> str:
     if is_bracket:
         parts.append(load_prompt("bracket_analysis_guide"))
         parts.append(load_prompt("bracket_domain_rules"))
-        parts.append("## 参考コード例（BracketType 1505: PLS × Profile FL）")
-        parts.append("```python\n" + load_example("bracket_1505") + "\n```")
-        parts.append("## 参考コード例（BracketType 1501: Profile FL × Profile FL）")
-        parts.append("```python\n" + load_example("bracket_1501") + "\n```")
+        _append_bracket_examples(parts)
 
     parts.append(load_prompt("output_format"))
 

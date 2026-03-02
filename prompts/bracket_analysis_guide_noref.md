@@ -77,10 +77,12 @@
 ```
 ["PLS", "False", "False", nx, ny, nz, endElementVar]
 ```
-- `endElementVar` は End1/End2 で指定されている要素（`extrude_sheetN` や `profileN[0]`）
+- `endElementVar` は **Surfaces1（PLS板）の面上に存在するスティフナまたはデッキ材プロファイル**
+  - 例: Side FR を Deck.D（solid2）に接続する場合 → Deck.D 上の DLxx/FRxx プロファイル（`profile17[0]` 等）
+  - **FR profile 自身の End1/End2 に指定した板要素（`extrude_sheetN` 等）ではない**
+  - 参考スクリプトが利用可能な場合は、同型ブラケット（1505）の `Sf1EndElements` をそのまま流用すること
 - `nx, ny, nz` は **自動解析結果の「EndElement法線」列の値をそのまま使用**してください
   - この値は EndElement のシート法線（SheetAlignNormal）の符号反転値として事前計算されています
-- EndElementがシートの場合でも `CreateThicken` でソリッド化されていれば `solidN` を推奨
 
 ### 6. その他の共通パラメータ
 - `DefinitionType=1`（固定）
