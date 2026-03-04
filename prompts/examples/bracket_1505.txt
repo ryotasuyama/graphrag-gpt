@@ -1,7 +1,7 @@
 # BracketType 1505: Plate(PLS面) × Profile(FL面)
 # BaseElement は Profile 本体 (profileXX[0])
 # Surfaces1: ["PLS","False","False", nx, ny, nz, solidX]   ← PLS 法線は solid の法線方向
-# Sf1EndElements: ["PLS","False","False", nx, ny, nz, profileXX[0]]  ← 端部接続要素
+# Sf1EndElements: ["PLS","False","False", nx, ny, nz, profileXX[0]]  ← 端部接続要素（必須: 省略すると COM 例外）
 # 命名規則: "HK.<構造>.<部材名>.<位置>"
 bracketPram1 = part.CreateBracketParam()
 bracketPram1.DefinitionType=1

@@ -3,7 +3,7 @@
 1. **`part.CreateBracket(bracketParam, False)`** — 第2引数は **必ず False**（True は非表示になるため禁止）
 2. **`part.BlankElement(bracketX, True)` を入れない** — ブラケットが見えなくなる。`False` のみ許可
 3. **BaseElement は `profileXX[0]`（Profile本体）** — solid を渡してはいけない
-4. **ブラケットコードは全 solid/profile 生成後に追記する**
+4. **ブラケットコードは、参照する solid・profile が定義済みであれば任意の位置に配置できる**（末尾集約は不要）
 5. **参考スクリプトの BracketType / フィールドをそのまま踏襲し、未知のフィールドを創作しない**
 
 ## 接続ペアの種類
@@ -17,10 +17,7 @@
 
 ## BracketType 選択ルール
 
-- **デフォルト形状 1505**（形状名: 2-E、`BracketParams=["200"]`）と **1501**（形状名: 2-B、BracketParamsなし）を基本とする
-- 形状を変更する場合は `BracketType` と `BracketParams` のパラメータ数を同時に変更すること（型番ごとにパラメータ数が異なる）
-- 3面ブラケット（BracketType 1512〜1521）は `Surfaces3` が必要なため、自動生成では原則使用しない
-- 型番とパラメータの完全一覧は `bracket_type_reference.md` を参照すること
+BracketType の選択基準は `bracket_analysis_guide_noref.md` を参照すること。
 
 ## ブラケット候補の探索基準
 

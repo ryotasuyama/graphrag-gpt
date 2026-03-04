@@ -17,10 +17,12 @@
 | (A) Plate(PLS面) × Profile(FL面) | **1505** | `["PLS","False","False",nx,ny,nz,solidX]` | `[profileN[0]+",FL"]` |
 | (B) Profile(FL面) × Profile(FL面) | **1501** | `[profileA[0]+",FL"]` | `[profileB[0]+",FL"]` |
 | (C) Profile板要素(PLS面) × Plate(PLS面) | **1505** | `["PLS","False","False",nx,ny,nz,profileXX[1]]` | `["PLS","False","False",nx2,ny2,nz2,solidY]` |
+| (D) Profile(WF面) × Profile(FL面) | **1501** | `[profileA[0]+",WF"]` | `[profileB[0]+",FL"]` |
 
 - ProfileType 1002/1003 → 通常 **1505**（板に取り付くスティフナの端部）
 - 2つのプロファイルが交差する箇所 → **1501**
 - タイプ(C): AttachSurface が存在せず profileXX[1] が板要素として使われる場合（Sf1EndElements は **不要**）
+- タイプ(D): Web面（WF）を持つ Profile が別 Profile の FL 面と交差する特殊ケース。Sf1EndElements は `[profileC[1]+",FR"]` 書式（PLS 配列でなく face 文字列）になることがある
 
 > 型番・パラメータの完全一覧は `bracket_type_reference.md` を参照してください。
 
@@ -57,7 +59,7 @@
 | Sf2DimensonParams | `["200","15"]` |
 | Scallop1Type | 1801 |
 | Scallop1Params | `["0"]` |
-| Scallop2Type | -1 |
+| Scallop2Type | 0  |   ← 1505/1501 共通
 
 #### BracketType 1501 の場合
 | パラメータ | 値 |
@@ -81,6 +83,14 @@
   - 例: Side FR を Deck.D（solid2）に接続する場合 → Deck.D 上の DLxx/FRxx プロファイル（`profile17[0]` 等）
   - **FR profile 自身の End1/End2 に指定した板要素（`extrude_sheetN` 等）ではない**
   - 参考スクリプトが利用可能な場合は、同型ブラケット（1505）の `Sf1EndElements` をそのまま流用すること
+
+**Sf1EndElements の選択手順**:
+1. ブラケット対象プロファイル（BaseElement）が End1/End2 で接続している板を確認する
+2. その板（solidN または extrude_sheetN）を AttachSurfaces に持つ「別のプロファイル」をスクリプト内から探す
+3. そのプロファイルの `[0]`（本体）を endElementVar として使用する
+4. 同一板上に複数のプロファイルがある場合は、デッキ材系（DL/FR系の名前を持つもの）を優先
+
+**見つからない場合**: Sf1EndElements を省略すると COM 例外が発生するため、最も近くにある別プロファイルで代用する。
 - `nx, ny, nz` は **自動解析結果の「EndElement法線」列の値をそのまま使用**してください
   - この値は EndElement のシート法線（SheetAlignNormal）の符号反転値として事前計算されています
 
@@ -88,7 +98,11 @@
 - `DefinitionType=1`（固定）
 - `UseSideSheetForPlane=False`（固定）
 - `RevSf1=False`, `RevSf2=False`, `RevSf3=False`（デフォルト）
-- `Thickness`: ProfileParams の板厚値を参考に `"8"` ～ `"12"` 程度
+- `Thickness`: BaseElement の ProfileParams から板厚値を取得して文字列で設定する。
+  - ProfileType 1002/1003（山形鋼）: ProfileParams[2]（Web厚）を使用
+    例: ProfileParams=["150","90","9.0","12","6"] → Thickness="9.0..."
+  - ProfileType 1201（T形鋼）: ProfileParams[1]（フランジ厚）を使用
+  - 参考スクリプトがある場合はそちらの値を優先
 - `Mold`: Profile と同じ値を使用
 - `MaterialName`: `"SS400"`（元スクリプトと同じ）
 
@@ -96,4 +110,5 @@
 - ミラーコピーされた部材はオリジナル側のみブラケットを作成（後でミラー可能）
 - `part.CreateBracket(bracketParam, False)` — 第2引数は必ず False
 - `part.BlankElement(bracketX, True)` は使わない
-- ブラケットコードは全 solid/profile 生成の後に配置する
+- ブラケットコードは、そのブラケットが参照する solid・profile がすべて生成された直後に配置する（スクリプト末尾に集約する必要はない）
+- BaseElement、Surfaces1/2 参照先、Sf1EndElements 参照先がコード上で定義済みであれば、任意の位置に配置できる
