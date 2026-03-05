@@ -876,6 +876,7 @@ def process_generation_loop(
         error_output = None
         # 3-agentモード用: 分析ドキュメントを保持（エラー修正ループで再利用）
         analysis_document = None
+        error_history = []  # 過去試行の失敗履歴（リトライ時に LLM へ渡す）
 
         for attempt in range(max_retries + 1):
             if attempt == 0:
@@ -959,11 +960,20 @@ def process_generation_loop(
 
                 if pipeline_mode == "three" and analysis_document:
                     # 3-agentエラー修正: Agent 2 をエラーコンテキスト付きで再実行 → 元コードにマージ
+                    # 現在の失敗情報を履歴に追記
+                    error_history.append({
+                        "attempt": attempt,
+                        "stderr": error_output,
+                        "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
+                        "error_type": error_line_info.get("exception_type", ""),
+                    })
                     error_ctx = {
                         "stderr": error_output,
                         "line_number": error_line_info.get("line_number", "unknown"),
                         "error_line": bracket_context.get("error_line", ""),
                         "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
+                        "error_history": error_history,        # 蓄積履歴を渡す
+                        "single_bracket_mode": attempt >= 2,  # 3回目以降で単一ブラケットモード
                     }
                     fixed_bracket_section = generate_bracket_section_with_error(
                         analysis_document, reference_code, error_ctx, llm=llm
