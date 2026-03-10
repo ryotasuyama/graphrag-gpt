@@ -1,4 +1,5 @@
 import os
+import re
 import functools
 
 PROMPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -111,6 +112,136 @@ def build_analysis_prompt(
         original_code=original_code,
         reference_section=reference_section,
         structure_section=structure_section,
+    )
+
+    parts.append(question)
+    return "\n\n".join(parts)
+
+
+def _extract_profile_name_map(code: str) -> dict:
+    """スクリプトから ProfilePramN.ProfileName="..." を抽出してマッピングを返す"""
+    mapping = {}
+    for m in re.finditer(r'ProfilePram(\d+)\.ProfileName\s*=\s*"([^"]+)"', code):
+        mapping[f"profile{m.group(1)}"] = m.group(2)
+    return mapping
+
+
+def _detect_fore_aft_mismatch(bracket_section: str, profile_name_map: dict) -> str:
+    """ブラケットパラメータ内の Fore/Aft ペアリング不整合を検出"""
+    profiles_in_section = set(re.findall(r'(profile\d+)', bracket_section))
+    names = {pv: profile_name_map.get(pv, "") for pv in profiles_in_section}
+
+    warnings = []
+    wall_profiles = {pv: n for pv, n in names.items() if "Wall." in n}
+    deck_profiles = {pv: n for pv, n in names.items() if "Deck." in n}
+
+    for wpv, wname in wall_profiles.items():
+        is_fore = ".Fore." in wname
+        is_aft = ".Aft." in wname
+        if not (is_fore or is_aft):
+            continue
+        for dpv, dname in deck_profiles.items():
+            w_dl = re.search(r'DL\d+', wname)
+            d_dl = re.search(r'DL\d+', dname)
+            if not (w_dl and d_dl and w_dl.group() == d_dl.group()):
+                continue
+            d_is_fore = dname.endswith(".F") or dname.endswith(".FP")
+            d_is_aft = dname.endswith(".A") or dname.endswith(".AP")
+            if is_fore and d_is_aft:
+                warnings.append(
+                    f"  - ⚠ `{wpv}` ({wname}) は Fore壁だが "
+                    f"`{dpv}` ({dname}) は Aft側Deck → 不整合"
+                )
+            elif is_aft and d_is_fore:
+                warnings.append(
+                    f"  - ⚠ `{wpv}` ({wname}) は Aft壁だが "
+                    f"`{dpv}` ({dname}) は Fore側Deck → 不整合"
+                )
+
+    if warnings:
+        return "### ⚠ Fore/Aft 方向不整合の検出\n" + "\n".join(warnings)
+    return ""
+
+
+def _build_reanalysis_error_section(error_context: dict, original_code: str) -> str:
+    """Agent 1 再分析用のエラー診断セクションを構築（ProfileName 逆引き付き）"""
+
+    # 1. スクリプトから ProfileName マッピングを構築
+    profile_name_map = _extract_profile_name_map(original_code)
+
+    # 2. 失敗したブラケットの関連変数から ProfileName を解決
+    bracket_param_section = error_context.get("bracket_param_section", "")
+    related_profiles = re.findall(r'(profile\d+)', bracket_param_section)
+    profile_annotations = []
+    for pvar in set(related_profiles):
+        pname = profile_name_map.get(pvar, "不明")
+        profile_annotations.append(f"  - {pvar} = `{pname}`")
+
+    # 3. Fore/Aft 不整合の自動検出
+    mismatch_warnings = _detect_fore_aft_mismatch(bracket_param_section, profile_name_map)
+
+    # 4. 成功済みブラケット情報
+    successful_count = error_context.get("successful_bracket_count", 0)
+    failed_name = error_context.get("failed_bracket_name", "")
+
+    section = f"""## エラー診断（Agent 1 再分析用）
+
+### 前回分析の実行結果
+- bracket 1〜{successful_count} は成功
+- **{failed_name} で COM 例外が発生**
+
+### 失敗したブラケットのパラメータ
+```python
+{bracket_param_section}
+```
+
+### 関連プロファイルの部材名
+{chr(10).join(profile_annotations)}
+
+{mismatch_warnings}
+
+### エラートレースバック
+```
+{error_context.get("stderr", "")}
+```
+
+### 指示
+1. 前回の分析ドキュメントのブラケット配置リストを見直してください
+2. 上記の失敗ブラケットの候補を修正または除外してください
+3. 成功した bracket 1〜{successful_count} はそのまま維持してください
+4. 修正後の **完全なブラケット配置分析ドキュメント** を出力してください
+"""
+    return section
+
+
+def build_reanalysis_prompt(
+    instruction: str,
+    original_code: str,
+    previous_analysis: str,
+    error_context: dict,
+    reference_code: str = None,
+) -> str:
+    """Agent 1 (リトライ): エラーコンテキスト付きで分析プロンプトを構築"""
+    parts = [load_prompt("base_system")]
+
+    if reference_code:
+        parts.append(load_prompt("bracket_analysis_guide"))
+    else:
+        parts.append(load_prompt("bracket_analysis_guide_noref"))
+
+    # エラー診断セクション構築
+    error_diagnosis = _build_reanalysis_error_section(error_context, original_code)
+
+    template = load_prompt("bracket_reanalysis")
+    question = template.format(
+        instruction=instruction,
+        original_code=original_code,
+        previous_analysis=previous_analysis,
+        error_diagnosis=error_diagnosis,
+        reference_section=(
+            f"【参考スクリプト】\n\n```python\n{reference_code}\n```\n"
+            if reference_code else ""
+        ),
     )
 
     parts.append(question)

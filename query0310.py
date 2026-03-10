@@ -28,7 +28,7 @@ except ImportError:
 from prompts.loader import (
     load_prompt, load_example, is_bracket_task,
     build_generation_prompt, build_analysis_prompt, build_bracket_section_prompt,
-    build_bracket_section_prompt_with_error, build_reanalysis_prompt,
+    build_bracket_section_prompt_with_error,
 )
 
 # ========== 定数定義 ==========
@@ -845,23 +845,6 @@ def analyze_bracket_placement(
     return response.content.strip()
 
 
-def reanalyze_bracket_placement(
-    instruction: str,
-    original_code: str,
-    previous_analysis: str,
-    error_context: dict,
-    reference_code: Optional[str] = None,
-    llm=None,
-) -> str:
-    """Agent 1 (リトライ): エラー情報を踏まえてブラケット配置分析を再実行"""
-    print("--- [Agent 1 Retry] Re-analyzing bracket placement ---")
-    prompt = build_reanalysis_prompt(
-        instruction, original_code, previous_analysis, error_context, reference_code
-    )
-    response = llm.invoke(prompt)
-    return response.content.strip()
-
-
 def generate_bracket_section(
     analysis_document: str,
     reference_code: Optional[str] = None,
@@ -1104,7 +1087,6 @@ def process_generation_loop(
         # 3-agentモード用: 分析ドキュメントを保持（エラー修正ループで再利用）
         analysis_document = None
         error_history = []  # 過去試行の失敗履歴（リトライ時に LLM へ渡す）
-        original_instruction = question  # Agent 1 再分析用に元の指示を保持
 
         for attempt in range(max_retries + 1):
             if attempt == 0:
@@ -1219,27 +1201,6 @@ def process_generation_loop(
                         "successful_bracket_count": successful_count,
                         "failed_bracket_name": failed_param_name,
                     }
-
-                    # === Agent 1 再分析 ===
-                    analysis_document = reanalyze_bracket_placement(
-                        instruction=original_instruction,
-                        original_code=original_code,
-                        previous_analysis=analysis_document,
-                        error_context=error_ctx,
-                        reference_code=reference_code,
-                        llm=llm,
-                    )
-                    # 再分析ドキュメントの保存
-                    if output_path:
-                        reanalysis_path = output_path.replace('.py', f'.reanalysis.attempt{attempt}.md')
-                        try:
-                            with open(reanalysis_path, 'w', encoding='utf-8') as f:
-                                f.write(analysis_document)
-                            print(f"--- Re-analysis saved to: {reanalysis_path} ---")
-                        except IOError as e:
-                            print(f"警告: 再分析ドキュメントの保存に失敗しました: {e}")
-
-                    # === Agent 2 は修正版 analysis_document を使用 ===
                     fixed_bracket_section = generate_bracket_section_with_error(
                         analysis_document, reference_code, error_ctx, llm=llm
                     )

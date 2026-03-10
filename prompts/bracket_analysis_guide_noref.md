@@ -112,3 +112,26 @@
 - `part.BlankElement(bracketX, True)` は使わない
 - ブラケットコードは、そのブラケットが参照する solid・profile がすべて生成された直後に配置する（スクリプト末尾に集約する必要はない）
 - BaseElement、Surfaces1/2 参照先、Sf1EndElements 参照先がコード上で定義済みであれば、任意の位置に配置できる
+
+### 8. Fore/Aft 方向整合ルール（必須）
+
+ブラケット候補を確定する前に、以下の方向整合を必ず検証してください：
+
+| 壁側プロファイル | 接続可能な Deck プロファイル | 接続不可 |
+|----------------|---------------------------|---------|
+| `Wall.Fore.DLxx.*` (CDP/BCP/ABP/OAP) | `Deck.*.DLxx.F` / `Deck.*.DLxx.FP` | `Deck.*.DLxx.A` / `Deck.*.DLxx.AP` |
+| `Wall.Aft.DLxx.*` (CDP/BCP/ABP/OAP)  | `Deck.*.DLxx.A` / `Deck.*.DLxx.AP` | `Deck.*.DLxx.F` / `Deck.*.DLxx.FP` |
+| `Wall.Side.FRxx.*` | 方向制約なし（Deck.*.FRxxP 等） | — |
+
+**検証手順:**
+1. 元スクリプトの全 `ProfilePram*.ProfileName` を一覧し、Fore/Aft を分類する
+2. ブラケット配置リストの各行について、Surfaces1 側の部材名と Surfaces2 側の部材名を照合する
+3. Fore壁×Aft側Deck、Aft壁×Fore側Deck のペアが見つかった場合は **その候補を除外**する
+4. 除外した候補の代わりに、同じDL線の正しい方向の Deck プロファイルが存在すれば差し替える
+5. 正しい方向の Deck プロファイルが存在しない場合は、そのDL線のブラケットは作成不可とする
+
+**よくある間違い例:**
+- ❌ `Wall.Aft.DL00.CD` (profile121) × `Deck.D.DL00.F` (profile93) → Aft × Fore は不可
+- ✅ `Wall.Aft.DL00.CD` (profile121) × `Deck.D.DL00.A` (profile33) → Aft × Aft で正しい
+- ❌ `Wall.Aft.DL03.BCP` (profile63) × `Deck.C.DL03.FP` (profile54) → Aft × Fore は不可
+- ✅ `Wall.Fore.DL03.BCP` (profile53) × `Deck.C.DL03.FP` (profile54) → Fore × Fore で正しい
