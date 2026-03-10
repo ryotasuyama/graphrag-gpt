@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "C:\Users\fsryo\graphrag-gpt\script\0303-2.py", line 4135, in <module>
-    bracketPram1.Surfaces1=["PLS","False","False","0","-0","-1",solidDeck]
-                                                                ^^^^^^^^^
-NameError: name 'solidDeck' is not defined

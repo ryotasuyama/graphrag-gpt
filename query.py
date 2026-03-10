@@ -261,6 +261,139 @@ def execute_graph_qa(question: str, llm, is_retry: bool = False) -> dict:
         raise e
 
 
+# ---------- Help コンテキスト取得 ----------
+
+_STOP_WORDS_EN = {
+    "the", "and", "for", "with", "this", "that", "from", "are", "has",
+    "will", "can", "please", "use", "add", "get", "set", "new",
+}
+
+_graph_direct = None
+
+
+def _get_graph_direct():
+    """直接クエリ用 Neo4jGraph のレイジー初期化"""
+    global _graph_direct
+    if _graph_direct is None:
+        if not NEO4J_AVAILABLE:
+            raise ImportError("langchain-neo4j がインストールされていません。")
+        _graph_direct = Neo4jGraph(
+            url=config.NEO4J_URI,
+            username=config.NEO4J_USER,
+            password=config.NEO4J_PASSWORD,
+            database=config.NEO4J_DATABASE,
+        )
+    return _graph_direct
+
+
+def _extract_search_terms(text: str):
+    """質問テキストから検索用キーワードを抽出する（LLM不使用）"""
+    import re as _re
+    terms = []
+    for w in _re.findall(r"[a-zA-Z]{3,}", text):
+        if w.lower() not in _STOP_WORDS_EN:
+            terms.append(w)
+    terms.extend(_re.findall(r"[\u30a0-\u30ff]{2,}", text))
+    for w in _re.findall(r"[\u4e00-\u9fff][\u3040-\u9fff\u4e00-\u9fff]*", text):
+        if len(w) >= 2:
+            terms.append(w)
+    seen: set = set()
+    result = []
+    for t in terms:
+        if t not in seen:
+            seen.add(t)
+            result.append(t)
+    return result[:5]
+
+
+def _retrieve_help_context(
+    question: str,
+    reference_code: Optional[str] = None,
+) -> str:
+    """
+    Neo4j から関連 HelpPage / BracketShapeType / DimensionType コンテキストを取得して文字列で返す。
+    HelpPage が Neo4j に未登録の場合は空文字を返す（安全）。
+    """
+    sections = []
+
+    try:
+        graph = _get_graph_direct()
+
+        is_bracket = is_bracket_task(question, reference_code)
+
+        if is_bracket:
+            # --- ブラケット形状種別一覧を取得 ---
+            bt_rows = graph.query(
+                "MATCH (bt:BracketShapeType) "
+                "RETURN bt.bracket_type AS bt, bt.shape_name AS shape, "
+                "       bt.bracket_params AS params, bt.category AS cat, bt.usage_note AS note "
+                "ORDER BY bt.bracket_type"
+            )
+            if bt_rows:
+                lines = ["### ブラケット形状種別（BracketShapeType）"]
+                for r in bt_rows:
+                    params_str = ", ".join(r.get("params") or []) or "なし"
+                    note_str = f" ※{r['note']}" if r.get("note") else ""
+                    lines.append(
+                        f"- Type {r['bt']} ({r['shape']}) [{r['cat']}]"
+                        f" params=[{params_str}]{note_str}"
+                    )
+                sections.append("\n".join(lines))
+
+            # --- Sf1/Sf2 DimensionType 一覧を取得 ---
+            dt_rows = graph.query(
+                "MATCH (d:DimensionType) "
+                "RETURN d.dim_type AS dim_type, d.shape_name AS shape_name, "
+                "       d.params AS params, d.usage_note AS usage_note "
+                "ORDER BY d.dim_type"
+            )
+            if dt_rows:
+                lines = ["### Sf1/Sf2 DimensionType 一覧"]
+                for r in dt_rows:
+                    params_str = ", ".join(r.get("params") or [])
+                    lines.append(f"- Type {r['dim_type']} ({r['shape_name']}) params=[{params_str}]")
+                sections.append("\n".join(lines))
+
+            # --- cmd_ship_bracket ページの summary ---
+            bp_rows = graph.query(
+                "MATCH (h:HelpPage {id: 'cmd_ship_bracket'}) "
+                "RETURN h.title AS title, h.summary AS summary"
+            )
+            if bp_rows and bp_rows[0].get("summary"):
+                sections.append(
+                    f"### ブラケットコマンド説明\n{bp_rows[0]['summary']}"
+                )
+
+        # --- キーワード検索（共通） ---
+        terms = _extract_search_terms(question)
+        for term in terms[:3]:
+            rows = graph.query(
+                "MATCH (h:HelpPage) "
+                "WHERE any(kw IN h.keywords WHERE toLower(kw) CONTAINS toLower($term)) "
+                "   OR toLower(h.title) CONTAINS toLower($term) "
+                "OPTIONAL MATCH (h)-[:DESCRIBES]->(target) "
+                "RETURN h.title AS title, h.summary AS summary, "
+                "       collect(target.name) AS describes_targets "
+                "LIMIT 5",
+                {"term": term},
+            )
+            if rows:
+                lines = [f"### 関連ヘルプページ（キーワード: {term}）"]
+                for r in rows:
+                    if r.get("summary"):
+                        targets = [t for t in (r.get("describes_targets") or []) if t]
+                        suffix = f" → 関連API: {', '.join(targets)}" if targets else ""
+                        lines.append(f"- [{r['title']}] {r['summary']}{suffix}")
+                if len(lines) > 1:
+                    sections.append("\n".join(lines))
+                break
+
+    except Exception as e:
+        print(f"--- [HelpContext] 取得スキップ（HelpPage未登録 or エラー）: {e} ---")
+
+    return "\n\n".join(sections)
+
+
 def save_context_file(intermediate_steps: list, output_path: Optional[str]) -> None:
     """
     グラフ検索の中間ステップ（CypherクエリとNeo4j結果）をJSONファイルに保存する。
@@ -486,6 +619,74 @@ def extract_bracket_failure_context(full_code: str, error_line_info: dict, conte
     return result
 
 
+def count_successful_brackets(code: str, error_line_number: int) -> Tuple[int, int, Optional[str]]:
+    """
+    エラー行より前に成功した CreateBracket 呼び出し数を算出する。
+
+    Returns:
+        (successful_count, total_count, failed_bracket_param_name)
+        - successful_count: エラー行より前の CreateBracket 数
+        - total_count: コード全体の CreateBracket 数
+        - failed_bracket_param_name: 失敗したブラケットのパラメータ変数名（例: bracketPram5）
+    """
+    lines = code.split('\n')
+    create_bracket_pattern = re.compile(r'part\.CreateBracket\(')
+    bracket_param_def_pattern = re.compile(r'(bracketPram\w+|bracketParam\w+)\s*=\s*part\.CreateBracketParam\(\)')
+
+    successful = 0
+    total = 0
+    failed_param_name = None
+
+    for i, line in enumerate(lines):
+        if create_bracket_pattern.search(line):
+            total += 1
+            if (i + 1) < error_line_number:
+                successful += 1
+
+    # 失敗したブラケットのパラメータ名を特定（エラー行以前で最後に定義されたもの）
+    if error_line_number:
+        for i in range(min(error_line_number - 1, len(lines) - 1), -1, -1):
+            m = bracket_param_def_pattern.search(lines[i])
+            if m:
+                failed_param_name = m.group(1)
+                break
+
+    return successful, total, failed_param_name
+
+
+def extract_required_bracket_count(question: str) -> Optional[int]:
+    """
+    ユーザの指示文から要求ブラケット数を抽出する。
+    「20個以上」→ 20、「15個」→ 15 など。
+    明示されていない場合は None を返す。
+    """
+    # 「N個以上」「N個」「N箇所」などのパターン
+    m = re.search(r'(\d+)\s*個(?:以上)?', question)
+    if m:
+        return int(m.group(1))
+    m = re.search(r'(\d+)\s*箇所', question)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def find_failed_bracket_start_line(code: str, error_line_number: int) -> int:
+    """
+    エラー行から遡って、失敗したブラケットの定義開始行（bracketPramN = part.CreateBracketParam()）を見つける。
+
+    Returns:
+        失敗ブラケット定義の開始行番号（1ベース）。見つからなければエラー行をそのまま返す。
+    """
+    lines = code.split('\n')
+    bracket_param_def_pattern = re.compile(r'(bracketPram\w+|bracketParam\w+)\s*=\s*part\.CreateBracketParam\(\)')
+
+    for i in range(min(error_line_number - 1, len(lines) - 1), max(0, error_line_number - MAX_BRACKET_SEARCH_LINES), -1):
+        if bracket_param_def_pattern.search(lines[i]):
+            return i + 1  # 1ベースに変換
+
+    return error_line_number
+
+
 def ask(question: str, original_code: str, reference_code: Optional[str] = None, llm=None, use_graph: bool = False, output_path: Optional[str] = None) -> str:
     """
     質問に回答します。use_graph=True のときはグラフ検索を使用し、False のときはプロンプトのみを使用します。
@@ -537,6 +738,15 @@ def ask(question: str, original_code: str, reference_code: Optional[str] = None,
 【編集指示】
 {question}
 """
+
+    # Help コンテキストを取得して質問に付加する
+    help_ctx = _retrieve_help_context(question, reference_code=reference_code)
+    if help_ctx:
+        final_question = final_question + (
+            "\n\n## ヘルプDB参照コンテキスト（Neo4jから取得）\n"
+            + help_ctx
+        )
+        print("--- [HelpContext] Help context appended to question ---")
 
     if use_graph:
         print("--- [Route: graph] Running Graph Search ---")
@@ -804,17 +1014,17 @@ def save_script_file(file_path: str, script_code: str, attempt: Optional[int] = 
         FileOperationError: ファイル書き込みに失敗した場合
     """
     try:
-        # attempt番号付きファイルの保存
-        if keep_attempts and attempt is not None and attempt > 0:
+        if attempt is not None and attempt > 0:
+            # リトライ時: attemptN ファイルにのみ保存（元ファイルを上書きしない）
             attempt_path = file_path.replace('.py', f'.attempt{attempt}.py')
             with open(attempt_path, 'w', encoding='utf-8') as f:
                 f.write(script_code)
             print(f"--- Script saved to: {attempt_path} ---")
-        
-        # 最新版の保存
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(script_code)
-        print(f"--- Script saved to: {file_path} ---")
+        else:
+            # 初回生成: 元ファイルに保存
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(script_code)
+            print(f"--- Script saved to: {file_path} ---")
     except IOError as e:
         raise FileOperationError(f"ファイル '{file_path}' の書き込みに失敗しました: {e}")
 
@@ -959,7 +1169,13 @@ def process_generation_loop(
                 bracket_context = extract_bracket_failure_context(current_code, error_line_info)
 
                 if pipeline_mode == "three" and analysis_document:
-                    # 3-agentエラー修正: Agent 2 をエラーコンテキスト付きで再実行 → 元コードにマージ
+                    # 3-agentエラー修正: 成功部分を保持し、失敗箇所以降のみ再生成
+                    error_line_num = error_line_info.get("line_number")
+                    successful_count, total_count, failed_param_name = count_successful_brackets(
+                        current_code, error_line_num or 0
+                    )
+                    print(f"--- Brackets: {successful_count}/{total_count} succeeded, failed at: {failed_param_name} ---")
+
                     # 現在の失敗情報を履歴に追記
                     error_history.append({
                         "attempt": attempt,
@@ -967,19 +1183,35 @@ def process_generation_loop(
                         "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
                         "error_type": error_line_info.get("exception_type", ""),
                     })
+
+                    # 成功部分を保持（エラー行から遡ってブラケット定義開始行を見つける）
+                    preserved_code = None
+                    if error_line_num and successful_count > 0:
+                        failed_start = find_failed_bracket_start_line(current_code, error_line_num)
+                        lines = current_code.split('\n')
+                        preserved_code = '\n'.join(lines[:failed_start - 1])
+                        print(f"--- Preserving lines 1-{failed_start - 1} ({successful_count} brackets) ---")
+
                     error_ctx = {
                         "stderr": error_output,
                         "line_number": error_line_info.get("line_number", "unknown"),
                         "error_line": bracket_context.get("error_line", ""),
                         "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
-                        "error_history": error_history,        # 蓄積履歴を渡す
-                        "single_bracket_mode": attempt >= 2,  # 3回目以降で単一ブラケットモード
+                        "error_history": error_history,
+                        "successful_bracket_count": successful_count,
+                        "failed_bracket_name": failed_param_name,
                     }
                     fixed_bracket_section = generate_bracket_section_with_error(
                         analysis_document, reference_code, error_ctx, llm=llm
                     )
-                    # original_code にマージ（current_code ではなく）して前回の失敗コード蓄積を防ぐ
-                    script_code = merge_bracket_section(original_code, fixed_bracket_section)
+
+                    if preserved_code:
+                        # 成功部分 + 再生成部分を結合
+                        script_code = preserved_code.rstrip() + "\n\n" + fixed_bracket_section + "\n"
+                        print("--- [Merge] Appended regenerated brackets after preserved section ---")
+                    else:
+                        # 成功ブラケットなし: 従来通り original_code にマージ
+                        script_code = merge_bracket_section(original_code, fixed_bracket_section)
                     current_code = script_code
                     answer = None
                 else:
@@ -1029,13 +1261,34 @@ def process_generation_loop(
                                 print(explanation)
 
                         if not no_exec:
-                            success, stdout, stderr, returncode = run_script(output_path, timeout_sec)
+                            # リトライ時は attemptN ファイルから実行
+                            exec_path = output_path
+                            if attempt > 0:
+                                exec_path = output_path.replace('.py', f'.attempt{attempt}.py')
+                            success, stdout, stderr, returncode = run_script(exec_path, timeout_sec)
 
                             if success:
-                                print("\n--- Execution Successful ---")
-                                if stdout:
-                                    print(stdout)
-                                break
+                                # ブラケット数の検証
+                                bracket_count_ok = True
+                                if script_code:
+                                    actual_count = len(re.findall(r'part\.CreateBracket\(', script_code))
+                                    required_count = extract_required_bracket_count(question)
+                                    if required_count and actual_count < required_count:
+                                        bracket_count_ok = False
+                                        print(f"\n--- Warning: Generated {actual_count} brackets, but {required_count} required ---")
+                                        error_output = (
+                                            f"ブラケット数不足: {actual_count}個生成されましたが、"
+                                            f"{required_count}個以上が必要です。"
+                                        )
+                                        if attempt < max_retries:
+                                            print("--- Continuing retries to meet bracket count requirement ---")
+                                            continue
+
+                                if bracket_count_ok:
+                                    print("\n--- Execution Successful ---")
+                                    if stdout:
+                                        print(stdout)
+                                    break
                             else:
                                 print(f"\n--- Execution Failed (Attempt {attempt + 1}) ---")
                                 if stderr:

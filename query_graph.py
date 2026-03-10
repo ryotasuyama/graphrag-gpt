@@ -382,6 +382,20 @@ def _retrieve_help_context(
                     )
                 sections.append("\n".join(lines))
 
+            # --- Sf1/Sf2 DimensionType 一覧を取得 ---
+            dt_rows = graph.query(
+                "MATCH (d:DimensionType) "
+                "RETURN d.dim_type AS dim_type, d.shape_name AS shape_name, "
+                "       d.params AS params, d.usage_note AS usage_note "
+                "ORDER BY d.dim_type"
+            )
+            if dt_rows:
+                lines = ["### Sf1/Sf2 DimensionType 一覧"]
+                for r in dt_rows:
+                    params_str = ", ".join(r.get("params") or [])
+                    lines.append(f"- Type {r['dim_type']} ({r['shape_name']}) params=[{params_str}]")
+                sections.append("\n".join(lines))
+
             # --- cmd_ship_bracket ページの summary ---
             bp_rows = graph.query(
                 "MATCH (h:HelpPage {id: 'cmd_ship_bracket'}) "
@@ -399,7 +413,9 @@ def _retrieve_help_context(
                 "MATCH (h:HelpPage) "
                 "WHERE any(kw IN h.keywords WHERE toLower(kw) CONTAINS toLower($term)) "
                 "   OR toLower(h.title) CONTAINS toLower($term) "
-                "RETURN h.title AS title, h.summary AS summary "
+                "OPTIONAL MATCH (h)-[:DESCRIBES]->(target) "
+                "RETURN h.title AS title, h.summary AS summary, "
+                "       collect(target.name) AS describes_targets "
                 "LIMIT 5",
                 {"term": term},
             )
@@ -407,7 +423,9 @@ def _retrieve_help_context(
                 lines = [f"### 関連ヘルプページ（キーワード: {term}）"]
                 for r in rows:
                     if r.get("summary"):
-                        lines.append(f"- [{r['title']}] {r['summary']}")
+                        targets = [t for t in (r.get("describes_targets") or []) if t]
+                        suffix = f" → 関連API: {', '.join(targets)}" if targets else ""
+                        lines.append(f"- [{r['title']}] {r['summary']}{suffix}")
                 if len(lines) > 1:
                     sections.append("\n".join(lines))
                 break  # 最初にヒットしたキーワードで終了

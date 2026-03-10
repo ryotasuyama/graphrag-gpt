@@ -156,10 +156,23 @@ def _build_error_context_block(error_context: dict) -> str:
     error_line = error_context.get("error_line", "")
     bracket_param_section = error_context.get("bracket_param_section", "")
 
+    successful_count = error_context.get("successful_bracket_count", 0)
+    failed_name = error_context.get("failed_bracket_name", "")
+
+    partial_regen_instruction = ""
+    if successful_count > 0 and failed_name:
+        partial_regen_instruction = (
+            f"\n### 成功済みブラケット情報\n"
+            f"- **bracket 1〜{successful_count} は実行に成功しています。** これらのコードは保持済みです。\n"
+            f"- **{failed_name} 以降で失敗しました。** {failed_name} 以降のブラケットのみ生成してください。\n"
+            f"- bracket 1〜{successful_count} のコードは出力に含めないでください（既に保持されています）。\n\n"
+        )
+
     block = (
         "## エラー修正モード\n\n"
         "前回生成したブラケットセクションを実行したところ、以下のエラーが発生しました。\n"
         "**同じ分析ドキュメントに基づいて、このエラーを修正したブラケットセクションを再生成してください。**\n\n"
+        f"{partial_regen_instruction}"
         f"### エラートレースバック\n```\n{stderr}\n```\n\n"
         f"### 失敗行（行{line_number}）\n```python\n{error_line}\n```\n\n"
         f"### 失敗したブラケットパラメータ定義\n```python\n{bracket_param_section}\n```\n\n"
@@ -213,15 +226,6 @@ def _build_error_context_block(error_context: dict) -> str:
             "  - 参考スクリプトに同型ブラケットがある場合は、その `Sf1EndElements` の値をそのまま使用してください。\n"
             "- **Sf1EndElements の法線方向を反転**: `RevSf1=True` を試すか、法線の符号を全て反転してください。\n"
             "- **BracketName の重複回避**: 各ブラケットに一意の BracketName を付けてください。\n"
-        )
-
-    # 単一ブラケットモード
-    if error_context.get("single_bracket_mode"):
-        block += (
-            "\n\n## 重要: 単一ブラケットモード\n\n"
-            "COM例外が繰り返し発生しています。\n"
-            "**ブラケットを1つだけ（bracketPram1のみ）生成してください。**\n"
-            "最も単純なケース（ProfileType=1003のEnd1側、BracketType=1505）を選んでください。\n"
         )
 
     return block

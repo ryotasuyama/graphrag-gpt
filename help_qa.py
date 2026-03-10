@@ -15,6 +15,8 @@ import re
 import config
 from typing import List, Optional
 
+from prompts.loader import is_bracket_task
+
 from langchain_openai import ChatOpenAI
 from langchain_neo4j import Neo4jGraph
 
@@ -118,8 +120,10 @@ def search_help_pages(question: str) -> list:
             "MATCH (h:HelpPage) "
             "WHERE any(kw IN h.keywords WHERE toLower(kw) CONTAINS toLower($term)) "
             "   OR toLower(h.title) CONTAINS toLower($term) "
+            "OPTIONAL MATCH (h)-[:DESCRIBES]->(target) "
             "RETURN h.id AS id, h.title AS title, h.summary AS summary, "
-            "       h.raw_text AS raw_text, h.page_type AS page_type "
+            "       h.raw_text AS raw_text, h.page_type AS page_type, "
+            "       collect(target.name) AS describes_targets "
             "LIMIT 5",
             {"term": term},
         )
@@ -135,8 +139,10 @@ def search_help_pages(question: str) -> list:
             rows = graph.query(
                 "MATCH (h:HelpPage) "
                 "WHERE toLower(h.raw_text) CONTAINS toLower($term) "
+                "OPTIONAL MATCH (h)-[:DESCRIBES]->(target) "
                 "RETURN h.id AS id, h.title AS title, h.summary AS summary, "
-                "       h.raw_text AS raw_text, h.page_type AS page_type "
+                "       h.raw_text AS raw_text, h.page_type AS page_type, "
+                "       collect(target.name) AS describes_targets "
                 "LIMIT 5",
                 {"term": term},
             )
@@ -176,9 +182,12 @@ def search_api_methods(question: str) -> list:
             "WHERE toLower(m.name) CONTAINS toLower($term) "
             "OPTIONAL MATCH (m)-[:BELONGS_TO]->(obj:Object) "
             "OPTIONAL MATCH (m)-[:HAS_RETURNS]->(rv:ReturnValue)-[:HAS_TYPE]->(rt:DataType) "
+            "OPTIONAL MATCH (hp:HelpPage)-[:DESCRIBES]->(m) "
             "RETURN m.name AS name, m.description AS desc, "
             "       obj.name AS obj_name, "
-            "       rv.description AS rv_desc, rt.name AS rv_type "
+            "       rv.description AS rv_desc, rt.name AS rv_type, "
+            "       collect(hp.id) AS help_page_ids, "
+            "       collect(hp.title) AS help_page_titles "
             "LIMIT 5",
             {"term": term},
         )
@@ -200,6 +209,36 @@ def search_api_methods(question: str) -> list:
     return methods
 
 
+# ========== BracketType 検索 ==========
+
+def search_bracket_types(question: str) -> dict:
+    """
+    ブラケット質問時のみ BracketShapeType / DimensionType を全件取得して返す。
+    非ブラケット質問や例外時は空リストを返す（安全）。
+    """
+    if not is_bracket_task(question):
+        return {"bracket_types": [], "dimension_types": []}
+
+    graph = _get_graph()
+    try:
+        bt_rows = graph.query(
+            "MATCH (b:BracketShapeType) "
+            "RETURN b.bracket_type AS bracket_type, b.shape_name AS shape_name, "
+            "       b.bracket_params AS bracket_params, b.category AS category, "
+            "       b.usage_note AS usage_note "
+            "ORDER BY b.bracket_type"
+        )
+        dt_rows = graph.query(
+            "MATCH (d:DimensionType) "
+            "RETURN d.dim_type AS dim_type, d.shape_name AS shape_name, "
+            "       d.params AS params, d.usage_note AS usage_note "
+            "ORDER BY d.dim_type"
+        )
+        return {"bracket_types": bt_rows, "dimension_types": dt_rows}
+    except Exception:
+        return {"bracket_types": [], "dimension_types": []}
+
+
 # ========== コンテキスト整形 ==========
 
 def _build_api_context(methods_data: list) -> str:
@@ -219,6 +258,12 @@ def _build_api_context(methods_data: list) -> str:
         section = header
         if desc:
             section += f"\n説明: {desc}"
+        help_ids = m.get("help_page_ids") or []
+        help_titles = m.get("help_page_titles") or []
+        if help_ids:
+            help_strs = [f"{i}（{t}）" for i, t in zip(help_ids, help_titles) if i]
+            if help_strs:
+                section += f"\n関連ヘルプ: {', '.join(help_strs)}"
 
         if params:
             section += "\n引数:"
@@ -245,6 +290,40 @@ def _build_api_context(methods_data: list) -> str:
     return "\n\n".join(parts)
 
 
+def _build_bracket_context(data: dict) -> str:
+    """BracketShapeType / DimensionType 検索結果をプロンプト用テキストに整形する"""
+    bracket_types = data.get("bracket_types", [])
+    dimension_types = data.get("dimension_types", [])
+
+    if not bracket_types:
+        return "（BracketType データが見つかりませんでした）"
+
+    rows = ["## BracketType 一覧（形状種別）", "| BracketType | 形状名 | カテゴリ | パラメータ | 備考 |", "|-------------|--------|----------|-----------|------|"]
+    for b in bracket_types:
+        bt = b.get("bracket_type") or ""
+        shape = b.get("shape_name") or ""
+        cat = b.get("category") or ""
+        params = b.get("bracket_params") or []
+        params_str = ", ".join(params) if params else "なし"
+        note = b.get("usage_note") or ""
+        rows.append(f"| {bt} | {shape} | {cat} | {params_str} | {note} |")
+
+    if dimension_types:
+        rows.append("")
+        rows.append("## DimensionType 一覧（Sf1/Sf2）")
+        rows.append("| DimensionType | 形状名 | パラメータ | 備考 |")
+        rows.append("|---------------|--------|-----------|------|")
+        for d in dimension_types:
+            dt = d.get("dim_type") or ""
+            shape = d.get("shape_name") or ""
+            params = d.get("params") or []
+            params_str = ", ".join(params) if params else ""
+            note = d.get("usage_note") or ""
+            rows.append(f"| {dt} | {shape} | {params_str} | {note} |")
+
+    return "\n".join(rows)
+
+
 def _build_context(pages: list) -> str:
     """検索結果ページをプロンプト用テキストに整形する"""
     if not pages:
@@ -263,6 +342,9 @@ def _build_context(pages: list) -> str:
         section = f"### [{i}] {title}"
         if summary:
             section += f"\n概要: {summary}"
+        targets = [t for t in (page.get("describes_targets") or []) if t]
+        if targets:
+            section += f"\n関連API: {', '.join(targets)}"
         if raw_text:
             section += f"\n本文抜粋:\n{raw_text}"
         parts.append(section)
@@ -280,14 +362,18 @@ def answer_question(question: str) -> str:
     try:
         pages = search_help_pages(question)
         methods = search_api_methods(question)
+        bracket_data = search_bracket_types(question)
     except Exception as e:
         return f"[エラー] Neo4j への接続またはクエリ実行に失敗しました: {e}"
 
-    print(f"--- [{len(pages)}件のヘルプページ、{len(methods)}件のAPIメソッドを参照] ---")
+    bt_count = len(bracket_data.get("bracket_types", []))
+    print(f"--- [{len(pages)}件のヘルプページ、{len(methods)}件のAPIメソッド、{bt_count}件のBracketType] ---")
 
     context_parts = []
     if methods:
         context_parts.append(_build_api_context(methods))
+    if bracket_data.get("bracket_types"):
+        context_parts.append(_build_bracket_context(bracket_data))
     if pages:
         context_parts.append("## ヘルプドキュメント コンテキスト\n\n" + _build_context(pages))
 
