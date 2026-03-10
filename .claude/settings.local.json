@@ -5,7 +5,8 @@
       "Bash(grep:*)",
       "Bash(wc:*)",
       "Bash(python:*)",
-      "Bash(c:Usersfsryographrag-gptvenvScriptspip install langchain-google-genai)"
+      "Bash(c:Usersfsryographrag-gptvenvScriptspip install langchain-google-genai)",
+      "Bash(source venv/bin/activate && python -c \"import tkinterdnd2\" 2>&1 && echo \"OK\")"
     ]
   }
 }

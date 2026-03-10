@@ -1,6 +1,3 @@
-from tree_sitter import Language, Parser
-import tree_sitter_python as tspython
-
 from pathlib import Path
 import re
 import json
@@ -29,9 +26,6 @@ API_ARG_TXT_CANDIDATES = [
     DATA_DIR / "api_arg.txt",
 ]
 
-PY_LANGUAGE = Language(tspython.language())
-parser = Parser(PY_LANGUAGE)
-
 CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 OPENAI_API_KEY = config.OPENAI_API_KEY
 
@@ -48,110 +42,6 @@ def _read_api_arg_text() -> str:
         if p.exists():
             return p.read_text(encoding="utf-8")
     raise FileNotFoundError("api_arg.txt が見つかりませんでした。")
-
-def _read_script_files() -> List[Tuple[str, str]]:
-    """data ディレクトリ内の .py ファイルをすべて読み込む"""
-    script_files = []
-    if not DATA_DIR.exists():
-        return []
-    
-    for p in DATA_DIR.glob("*.py"):
-        if p.is_file():
-            script_files.append((p.name, p.read_text(encoding="utf-8")))
-            
-    return script_files
-
-def extract_triples_from_script(
-    script_path: str, script_text: str
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-    """スクリプト例のテキストから、ノード/リレーションのトリプルを生成する"""
-    triples: List[Dict[str, Any]] = []
-    node_props: Dict[str, Dict[str, Any]] = {}
-
-    script_node_id = script_path
-    node_props[script_node_id] = {
-        "type": "ScriptExample",
-        "properties": {
-            "name": script_path,
-            "code": script_text
-        }
-    }
-
-    all_methods_in_script = set()
-
-    # データフローを追跡するため、スクリプト内で変数がどのメソッド呼び出しから生成されたかを記録する
-    # { "変数名": "生成元のMethodCallノードID" }
-    variable_to_source_call_id: Dict[str, str] = {}
-
-    method_calls_in_script = _extract_method_calls_from_script(script_text)
-    prev_call_node_id = None
-
-    for i, call in enumerate(method_calls_in_script):
-        method_name = call["method_name"]
-        all_methods_in_script.add(method_name)
-        
-        call_node_id = f"{script_path}_call_{i}"
-        node_props[call_node_id] = {
-            "type": "MethodCall",
-            "properties": {"code": call["full_text"], "order": i}
-        }
-        
-        # ScriptExampleノードに直接CONTAINSリレーションで関連付ける
-        triples.append({
-            "source": script_node_id, "source_type": "ScriptExample",
-            "label": "CONTAINS", "target": call_node_id, "target_type": "MethodCall"
-        })
-        
-        triples.append({
-            "source": call_node_id, "source_type": "MethodCall",
-            "label": "CALLS", "target": method_name, "target_type": "Method"
-        })
-
-        # --- データフロー解析 ---
-        # 1. 現在のメソッド呼び出しの引数を解析する
-        arguments_node = call["node"].child_by_field_name("arguments")
-        if arguments_node:
-            # 引数ノード内のすべての変数名（identifier）を再帰的に探索
-            arg_vars = []
-            def find_identifiers(n):
-                if n.type == 'identifier':
-                    arg_vars.append(n.text.decode('utf8'))
-                for child in n.children:
-                    find_identifiers(child)
-            find_identifiers(arguments_node)
-            
-            # 見つかった変数について、それが以前のメソッド呼び出しの結果であるかチェック
-            for var_name in set(arg_vars): # setで重複したリレーションを防止
-                if var_name in variable_to_source_call_id:
-                    source_call_node_id = variable_to_source_call_id[var_name]
-                    # データフローを示す PASSES_RESULT_TO リレーションを追加
-                    triples.append({
-                        "source": source_call_node_id, "source_type": "MethodCall",
-                        "label": "PASSES_RESULT_TO", 
-                        "target": call_node_id, "target_type": "MethodCall"
-                    })
-
-        # 2. 現在のメソッド呼び出しの結果が変数に代入されているかチェック
-        if call["assigned_to"]:
-            # 変数名と現在の呼び出しIDをマッピングし、後続の呼び出しで参照できるようにする
-            variable_to_source_call_id[call["assigned_to"]] = call_node_id
-        # --- データフロー解析ここまで ---
-
-        if prev_call_node_id:
-            triples.append({
-                "source": prev_call_node_id, "source_type": "MethodCall",
-                "label": "NEXT", "target": call_node_id, "target_type": "MethodCall"
-            })
-        
-        prev_call_node_id = call_node_id
-
-    for method_name in all_methods_in_script:
-        triples.append({
-            "source": script_node_id, "source_type": "ScriptExample",
-            "label": "IS_EXAMPLE_OF", "target": method_name, "target_type": "Method"
-        })
-
-    return triples, node_props
 
 def _extract_graph_from_specs_with_llm(raw_text: str) -> Dict[str, List[Dict[str, Any]]]:
     """LLMを使ってAPI仕様書の生テキストからノードとリレーションを抽出する"""
@@ -308,50 +198,6 @@ def extract_triples_from_specs(
         })
         
     return triples, node_props
-
-
-def _extract_method_calls_from_script(script_text: str) -> List[Dict[str, Any]]:
-    """
-    スクリプトテキストを解析し、メソッド呼び出しの詳細情報を抽出する。
-    提案1の実装：メソッド呼び出しの結果が代入される変数名も取得する。
-    """
-    tree = parser.parse(bytes(script_text, "utf8"))
-    root_node = tree.root_node
-    calls = []
-    
-    def find_calls(node):
-        # メソッド呼び出し (`call`ノード) を探す
-        if node.type == 'call':
-            function_node = node.child_by_field_name('function')
-            # obj.method() の形式 (`attribute`ノード) であることを確認
-            if function_node and function_node.type == 'attribute':
-                obj_node = function_node.child_by_field_name('object')
-                method_node = function_node.child_by_field_name('attribute')
-                
-                if obj_node and method_node:
-                    call_details = {
-                        "object_name": obj_node.text.decode('utf8'),
-                        "method_name": method_node.text.decode('utf8'),
-                        "full_text": node.text.decode('utf8'),
-                        "node": node,  # データフロー解析のためにnodeオブジェクト自体を保持
-                        "assigned_to": None, # 結果が代入される変数名（デフォルトはNone）
-                    }
-                    
-                    # この呼び出しが代入文の一部かチェック (e.g., var = obj.method())
-                    parent = node.parent
-                    if parent and parent.type == 'assignment':
-                        left_node = parent.child_by_field_name('left')
-                        if left_node:
-                            call_details["assigned_to"] = left_node.text.decode('utf8')
-                            
-                    calls.append(call_details)
-
-        # 再帰的に子ノードを探索
-        for child in node.children:
-            find_calls(child)
-
-    find_calls(root_node)
-    return calls
 
 
 def _triples_to_graph_documents(triples: List[Dict[str, Any]], node_props: Dict[str, Dict[str, Any]]) -> List[GraphDocument]:
@@ -597,30 +443,12 @@ def _build_and_load_neo4j() -> Tuple[List[GraphDocument], List[Dict[str, Any]], 
         )
     print("💾 API仕様書解析後のデータ(トリプル/ノード)を 'neo4j_data.json' に保存しました。")
 
-    # --- 2. スクリプト例 (data/*.py) の解析 ---
-    print("\n🐍 スクリプト例 (data/*.py) を解析中...")
-    script_files = _read_script_files()
-    if not script_files:
-        print("⚠ data ディレクトリに解析対象の .py ファイルが見つかりませんでした。")
-        script_triples, script_node_props = [], {}
-    else:
-        all_script_triples = []
-        all_script_node_props = {}
-        for script_path, script_text in script_files:
-            print(f"  - ファイルを解析中: {script_path}")
-            triples, node_props = extract_triples_from_script(script_path, script_text)
-            all_script_triples.extend(triples)
-            all_script_node_props.update(node_props)
-        script_triples = all_script_triples
-        script_node_props = all_script_node_props
-        print(f"✔ スクリプト例からトリプルを総計: {len(script_triples)} 件")
-
-    # --- 3. データの統合とグラフDBへの投入 ---
+    # --- 2. データの統合とグラフDBへの投入 ---
     print("\n🔗 データを統合してグラフを構築中...")
-    
+
     # Chroma用にデータをまとめる
-    all_triples = spec_triples + script_triples
-    all_node_props = {**spec_node_props, **script_node_props}
+    all_triples = spec_triples
+    all_node_props = spec_node_props
     
     # Neo4j用のGraphDocumentを生成
     gdocs = _triples_to_graph_documents(all_triples, all_node_props)
