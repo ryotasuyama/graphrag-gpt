@@ -437,7 +437,7 @@ def create_llm(model_type: str = "gpt"):
     """CLI引数に基づいてLLMインスタンスを生成する。"""
     if model_type == "gpt":
         return ChatOpenAI(
-            model="gpt-5.2",
+            model="gpt-5.4",
             temperature=0,
             openai_api_key=config.OPENAI_API_KEY,
         )
