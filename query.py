@@ -952,17 +952,6 @@ def load_script_files(file_path: str, reference_path: Optional[str] = None) -> T
         except Exception as e:
             raise FileOperationError(f"参考スクリプトファイル '{reference_path}' の読み込み中にエラーが発生しました: {e}")
 
-    # ブラケットタスクで参照スクリプトが未指定の場合、デフォルト参照を自動ロード
-    if reference_code is None and is_bracket_task("", original_code):
-        default_ref = os.path.join(os.path.dirname(os.path.abspath(__file__)), "script", "samplename.py")
-        if os.path.exists(default_ref) and os.path.abspath(default_ref) != os.path.abspath(file_path):
-            try:
-                with open(default_ref, "r", encoding="utf-8") as f:
-                    reference_code = f.read()
-                print(f"--- [Default Reference] Auto-loaded: {default_ref} ---")
-            except Exception as e:
-                print(f"警告: デフォルト参照スクリプトの読み込みに失敗しました: {e}")
-
     return original_code, reference_code
 
 
