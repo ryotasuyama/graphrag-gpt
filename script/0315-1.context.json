@@ -1,0 +1,212 @@
+{
+  "cypher_query": "MATCH (b:BracketShapeType)\nRETURN b.shape_name AS shape_name, b.bracket_type AS bracket_type, b.category AS category, b.usage_note AS usage_note, b.bracket_params AS bracket_params\nORDER BY b.shape_name\nLIMIT 30",
+  "neo4j_result_count": 19,
+  "neo4j_results": [
+    {
+      "shape_name": "2-B",
+      "bracket_type": 1501,
+      "category": "2面",
+      "usage_note": "Profile FL × Profile FL の標準形",
+      "bracket_params": []
+    },
+    {
+      "shape_name": "2-B",
+      "bracket_type": 1502,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-C",
+      "bracket_type": 1503,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-C2",
+      "bracket_type": 1508,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-D",
+      "bracket_type": 1504,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-E",
+      "bracket_type": 1505,
+      "category": "2面",
+      "usage_note": "Plate PLS × Profile FL の標準形",
+      "bracket_params": [
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-F",
+      "bracket_type": 1506,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-G",
+      "bracket_type": 1507,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R"
+      ]
+    },
+    {
+      "shape_name": "2-G2",
+      "bracket_type": 1509,
+      "category": "2面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R"
+      ]
+    },
+    {
+      "shape_name": "3-B",
+      "bracket_type": 1512,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "R"
+      ]
+    },
+    {
+      "shape_name": "3-C",
+      "bracket_type": 1513,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R"
+      ]
+    },
+    {
+      "shape_name": "3-D",
+      "bracket_type": 1514,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R1",
+        "R2",
+        "a1",
+        "a2"
+      ]
+    },
+    {
+      "shape_name": "3-E",
+      "bracket_type": 1515,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "D"
+      ]
+    },
+    {
+      "shape_name": "3-F",
+      "bracket_type": 1516,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "D",
+        "R1",
+        "R2",
+        "L1",
+        "L2"
+      ]
+    },
+    {
+      "shape_name": "3-G",
+      "bracket_type": 1517,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ]
+    },
+    {
+      "shape_name": "3-H",
+      "bracket_type": 1518,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "C1",
+        "C2",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ]
+    },
+    {
+      "shape_name": "3-I",
+      "bracket_type": 1519,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "C1",
+        "C2",
+        "C3",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ]
+    },
+    {
+      "shape_name": "3-J",
+      "bracket_type": 1520,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ]
+    },
+    {
+      "shape_name": "3-K",
+      "bracket_type": 1521,
+      "category": "3面",
+      "usage_note": "",
+      "bracket_params": [
+        "C",
+        "R1",
+        "R2",
+        "B1",
+        "B2"
+      ]
+    }
+  ]
+}
