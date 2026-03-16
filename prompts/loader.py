@@ -183,12 +183,59 @@ def _build_reanalysis_error_section(error_context: dict, original_code: str) -> 
     # 4. 成功済みブラケット情報
     successful_count = error_context.get("successful_bracket_count", 0)
     failed_name = error_context.get("failed_bracket_name", "")
+    failed_var = error_context.get("failed_bracket_var", "")
+    failed_signature = error_context.get("failed_signature", "")
+    failed_family_signature = error_context.get("failed_family_signature", "")
+    normalization_note = error_context.get("normalization_note", "")
+    bracket_type = error_context.get("bracket_type", "")
+    base_element = error_context.get("base_element", "")
+    surfaces1 = error_context.get("surfaces1", "")
+    surfaces2 = error_context.get("surfaces2", "")
+    sf1_end_elements = error_context.get("sf1_end_elements", "")
+    usage_lines = error_context.get("usage_lines", [])
+    blacklisted_signatures = error_context.get("blacklisted_signatures", [])
+    blacklisted_family_signatures = error_context.get("blacklisted_family_signatures", [])
+
+    usage_section = ""
+    if usage_lines:
+        usage_lines_text = "\n".join(
+            f"  - line {entry.get('line_number')}: {entry.get('line', '')}"
+            for entry in usage_lines[:5]
+        )
+        usage_section = f"\n### 未定義 bracket の使用箇所\n{usage_lines_text}\n"
+
+    blacklist_section = ""
+    if blacklisted_signatures or blacklisted_family_signatures:
+        lines = ["\n### 再生成禁止ルール"]
+        if blacklisted_signatures:
+            lines.append("- 同一署名を再生成しないこと:")
+            for item in blacklisted_signatures[-5:]:
+                lines.append(f"  - {item}")
+        if blacklisted_family_signatures:
+            lines.append("- 近縁署名も再生成しないこと:")
+            for item in blacklisted_family_signatures[-5:]:
+                lines.append(f"  - {item}")
+        blacklist_section = "\n".join(lines) + "\n"
 
     section = f"""## エラー診断（Agent 1 再分析用）
 
 ### 前回分析の実行結果
 - bracket 1〜{successful_count} は成功
-- **{failed_name} で COM 例外が発生**
+- **{failed_name or "unknown"} で失敗**
+
+### 正規化した失敗候補
+- failed_bracket_param: `{failed_name or "unknown"}`
+- failed_bracket_var: `{failed_var or "unknown"}`
+- failed_signature: `{failed_signature or "unknown"}`
+- failed_family_signature: `{failed_family_signature or "unknown"}`
+- BracketType: `{bracket_type or "unknown"}`
+- BaseElement: `{base_element or "unknown"}`
+- Surfaces1: `{surfaces1 or "unknown"}`
+- Surfaces2: `{surfaces2 or "unknown"}`
+- Sf1EndElements: `{sf1_end_elements or "unknown"}`
+
+### 正規化メモ
+{normalization_note or "なし"}
 
 ### 失敗したブラケットのパラメータ
 ```python
@@ -199,6 +246,8 @@ def _build_reanalysis_error_section(error_context: dict, original_code: str) -> 
 {chr(10).join(profile_annotations)}
 
 {mismatch_warnings}
+{usage_section}
+{blacklist_section}
 
 ### エラートレースバック
 ```
@@ -207,9 +256,10 @@ def _build_reanalysis_error_section(error_context: dict, original_code: str) -> 
 
 ### 指示
 1. 前回の分析ドキュメントのブラケット配置リストを見直してください
-2. 上記の失敗ブラケットの候補を修正または除外してください
-3. 成功した bracket 1〜{successful_count} はそのまま維持してください
-4. 修正後の **完全なブラケット配置分析ドキュメント** を出力してください
+2. 上記の失敗ブラケットそのものだけでなく、その近縁候補も修正または除外してください
+3. `NameError` の場合は未定義変数使用行ではなく、対応する CreateBracket 候補を修正対象にしてください
+4. 成功した bracket 1〜{successful_count} はそのまま維持してください
+5. 修正後の **完全なブラケット配置分析ドキュメント** を出力してください
 """
     return section
 
@@ -289,6 +339,18 @@ def _build_error_context_block(error_context: dict) -> str:
 
     successful_count = error_context.get("successful_bracket_count", 0)
     failed_name = error_context.get("failed_bracket_name", "")
+    failed_var = error_context.get("failed_bracket_var", "")
+    failed_signature = error_context.get("failed_signature", "")
+    failed_family_signature = error_context.get("failed_family_signature", "")
+    bracket_type = error_context.get("bracket_type", "")
+    base_element = error_context.get("base_element", "")
+    surfaces1 = error_context.get("surfaces1", "")
+    surfaces2 = error_context.get("surfaces2", "")
+    sf1_end_elements = error_context.get("sf1_end_elements", "")
+    normalization_note = error_context.get("normalization_note", "")
+    usage_lines = error_context.get("usage_lines", [])
+    blacklisted_signatures = error_context.get("blacklisted_signatures", [])
+    blacklisted_family_signatures = error_context.get("blacklisted_family_signatures", [])
 
     partial_regen_instruction = ""
     if successful_count > 0 and failed_name:
@@ -307,6 +369,18 @@ def _build_error_context_block(error_context: dict) -> str:
         f"### エラートレースバック\n```\n{stderr}\n```\n\n"
         f"### 失敗行（行{line_number}）\n```python\n{error_line}\n```\n\n"
         f"### 失敗したブラケットパラメータ定義\n```python\n{bracket_param_section}\n```\n\n"
+        "### 構造化された失敗候補\n"
+        f"- failed_bracket_param: `{failed_name or 'unknown'}`\n"
+        f"- failed_bracket_var: `{failed_var or 'unknown'}`\n"
+        f"- failed_signature: `{failed_signature or 'unknown'}`\n"
+        f"- failed_family_signature: `{failed_family_signature or 'unknown'}`\n"
+        f"- BracketType: `{bracket_type or 'unknown'}`\n"
+        f"- BaseElement: `{base_element or 'unknown'}`\n"
+        f"- Surfaces1: `{surfaces1 or 'unknown'}`\n"
+        f"- Surfaces2: `{surfaces2 or 'unknown'}`\n"
+        f"- Sf1EndElements: `{sf1_end_elements or 'unknown'}`\n\n"
+        "### 正規化メモ\n"
+        f"{normalization_note or 'なし'}\n\n"
         "### ブラケット修正チェックリスト（以下を順に確認して修正）\n"
         "0. **表示状態（Blank）**: `CreateBracket(bracketParam, True)` → 必ず False に。`BlankElement(bracketX, True)` は削除。\n"
         "1. **Surfaces1/Surfaces2**: 面が None/未生成/型不一致でないか。面ペア順序（PLS↔FL等）が正しいか。\n"
@@ -315,7 +389,28 @@ def _build_error_context_block(error_context: dict) -> str:
         "4. **BracketType とフィールドの整合**: 参考スクリプトの同型を優先。\n"
         "5. **寸法の符号・範囲**: Height/Width/Thickness が 0 以下でないか。\n"
         "6. **向き（Orientation/Vector）**: 参照面の法線に対して不正でないか。\n"
+        "7. **修正範囲**: 失敗候補そのものだけでなく、同じループ・同系統の危険候補も除外または置換してよい。\n"
+        "8. **置換方針**: Side 系の未実績 `1501 / FL-FL` は避け、必要なら `1505 / PLS-FL + Sf1EndElements` へ置換する。\n"
+        "9. **成功済み候補の保持**: 既に成功した bracket は維持し、失敗候補とその近縁のみ修正する。\n"
     )
+
+    if usage_lines:
+        usage_lines_text = "\n".join(
+            f"- line {entry.get('line_number')}: `{entry.get('line', '')}`"
+            for entry in usage_lines[:5]
+        )
+        block += f"\n### 未定義 bracket の使用箇所\n{usage_lines_text}\n"
+
+    if blacklisted_signatures or blacklisted_family_signatures:
+        block += "\n### 再生成禁止ルール\n"
+        if blacklisted_signatures:
+            block += "- 同一署名の候補を再生成しないこと\n"
+            for item in blacklisted_signatures[-5:]:
+                block += f"  - `{item}`\n"
+        if blacklisted_family_signatures:
+            block += "- 近縁候補も再生成しないこと\n"
+            for item in blacklisted_family_signatures[-5:]:
+                block += f"  - `{item}`\n"
 
     # 過去の試行履歴をレンダリング（2件以上ある場合のみ）
     error_history = error_context.get("error_history", [])
@@ -330,9 +425,12 @@ def _build_error_context_block(error_context: dict) -> str:
             past_stderr = entry.get("stderr", "")
             past_section = entry.get("bracket_param_section", "")
             truncated_stderr = past_stderr[:400] + ("..." if len(past_stderr) > 400 else "")
+            failure_summary = entry.get("failure_summary", "")
             history_lines.append(
                 f"### 試行 {attempt_num} のエラー\n"
                 f"```\n{truncated_stderr}\n```\n\n"
+                f"### 試行 {attempt_num} の失敗候補要約\n"
+                f"{failure_summary or '要約なし'}\n\n"
                 f"### 試行 {attempt_num} で使用したブラケットパラメータ定義\n"
                 f"```python\n{past_section}\n```\n"
             )

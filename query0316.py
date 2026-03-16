@@ -30,11 +30,6 @@ from prompts.loader import (
     build_generation_prompt, build_analysis_prompt, build_bracket_section_prompt,
     build_bracket_section_prompt_with_error, build_reanalysis_prompt,
 )
-from prompts.structure_extractor import (
-    extract_script_structure,
-    validate_bracket_section,
-    auto_fix_bracket_section,
-)
 
 # ========== 定数定義 ==========
 MAX_BRACKET_SEARCH_LINES = 200  # ブラケットパラメータ定義の探索範囲
@@ -47,8 +42,6 @@ GRAPH_SEARCH_TOP_K = 10000      # グラフ検索の最大結果数
 BRACKET_PARAM_PATTERN = r'(bracketPram\w+|bracketParam\w+)'
 PYTHON_CODE_BLOCK_PATTERN = r"```python\n(.*?)```"
 BRACKET_DEFINITION_PATTERN = r'(bracketPram\w+\s*=\s*part\.CreateBracketParam\(\)[^\n]*\n(?:[^\n]*\n)*?bracket\w+\s*=\s*part\.CreateBracket\([^\n]+\))'
-BRACKET_PARAM_DEFINITION_RE = re.compile(r'(bracketPram\w+|bracketParam\w+)\s*=\s*part\.CreateBracketParam\(\)')
-BRACKET_CREATE_RE_TEMPLATE = r'^\s*(bracket\w+)\s*=\s*part\.CreateBracket\(\s*{param}\s*,\s*(True|False)\s*\)'
 
 # ========== カスタム例外クラス ==========
 class FileOperationError(Exception):
@@ -541,405 +534,6 @@ def parse_traceback(stderr: str) -> dict:
     return result
 
 
-def _extract_profile_name_map(code: str) -> dict:
-    """ProfilePramN.ProfileName を profileN -> name に逆引きする。"""
-    param_to_name = {}
-    for match in re.finditer(r'(ProfilePram\d+)\.ProfileName\s*=\s*"([^"]+)"', code):
-        param_to_name[match.group(1)] = match.group(2)
-
-    profile_name_map = {}
-    for match in re.finditer(r'(profile\d+)\s*=\s*part\.CreateProfile\((ProfilePram\d+),\s*(?:True|False)\)', code):
-        profile_name_map[match.group(1)] = param_to_name.get(match.group(2), "")
-    return profile_name_map
-
-
-def _extract_bracket_property(block_text: str, param_name: str, property_name: str) -> str:
-    """bracketParam.Property = ... の右辺を抽出する。"""
-    match = re.search(
-        rf'{re.escape(param_name)}\.{property_name}\s*=\s*(.+)',
-        block_text,
-        re.MULTILINE,
-    )
-    return match.group(1).strip() if match else ""
-
-
-def _normalize_signature_part(value: str) -> str:
-    """署名比較用に空白を除去して正規化する。"""
-    if not value:
-        return ""
-    value = value.strip()
-    value = re.sub(r'\s+', '', value)
-    value = value.replace("'", '"')
-    return value
-
-
-def _extract_bracket_related_vars(block_text: str) -> list[str]:
-    """ブラケットブロックで参照している要素変数を抽出する。"""
-    refs = re.findall(r'(profile\d+(?:\[\d+\])?|solid\d+|extrude_sheet\d+|thicken\d+)', block_text)
-    seen = []
-    for ref in refs:
-        if ref not in seen:
-            seen.append(ref)
-    return seen
-
-
-def _build_failed_signature(bracket_type: str, base_element: str, surfaces1: str, surfaces2: str) -> str:
-    """失敗候補の比較用署名を構築する。"""
-    bt = _normalize_signature_part(bracket_type) or "unknown"
-    base = _normalize_signature_part(base_element) or "unknown"
-    s1 = _normalize_signature_part(surfaces1) or "unknown"
-    s2 = _normalize_signature_part(surfaces2) or "unknown"
-    return f"{bt}|Base={base}|S1={s1}|S2={s2}"
-
-
-def _build_failed_family_signature(block: dict) -> str:
-    """近縁候補判定に使う簡易ファミリ署名を構築する。"""
-    bracket_type = _normalize_signature_part(block.get("bracket_type", "")) or "unknown"
-    base_element = _normalize_signature_part(block.get("base_element", "")) or "unknown"
-    surfaces2 = _normalize_signature_part(block.get("surfaces2", "")) or "unknown"
-    profile_names = sorted(
-        name for name in (
-            _normalize_signature_part(v) for v in block.get("related_profile_names", [])
-        ) if name
-    )
-    profile_key = ",".join(profile_names) if profile_names else "unknown"
-    return f"{bracket_type}|Base={base_element}|S2={surfaces2}|Profiles={profile_key}"
-
-
-def collect_bracket_blocks(code: str) -> list[dict]:
-    """コード内の bracketPram ブロックを抽出して構造化する。"""
-    lines = code.split('\n')
-    starts = []
-    for idx, line in enumerate(lines):
-        match = BRACKET_PARAM_DEFINITION_RE.search(line)
-        if match:
-            starts.append((idx, match.group(1)))
-
-    profile_name_map = _extract_profile_name_map(code)
-    blocks = []
-    for pos, (start_idx, param_name) in enumerate(starts):
-        end_idx = starts[pos + 1][0] if pos + 1 < len(starts) else len(lines)
-        block_lines = lines[start_idx:end_idx]
-        block_text = '\n'.join(block_lines).strip()
-
-        create_match = re.search(
-            BRACKET_CREATE_RE_TEMPLATE.format(param=re.escape(param_name)),
-            block_text,
-            re.MULTILINE,
-        )
-        bracket_var = create_match.group(1) if create_match else ""
-        create_flag = create_match.group(2) if create_match else ""
-        create_line_offset = None
-        create_line = ""
-        if create_match:
-            create_prefix = create_match.group(0)
-            for local_idx, line in enumerate(block_lines):
-                if create_prefix in line:
-                    create_line_offset = local_idx
-                    create_line = line
-                    break
-
-        bracket_type = _extract_bracket_property(block_text, param_name, "BracketType")
-        base_element = _extract_bracket_property(block_text, param_name, "BaseElement")
-        surfaces1 = _extract_bracket_property(block_text, param_name, "Surfaces1")
-        surfaces2 = _extract_bracket_property(block_text, param_name, "Surfaces2")
-        sf1_end_elements = _extract_bracket_property(block_text, param_name, "Sf1EndElements")
-        related_vars = _extract_bracket_related_vars(block_text)
-        related_profiles = []
-        related_profile_names = []
-        for ref in related_vars:
-            profile_match = re.match(r'(profile\d+)', ref)
-            if not profile_match:
-                continue
-            profile_var = profile_match.group(1)
-            if profile_var not in related_profiles:
-                related_profiles.append(profile_var)
-                related_profile_names.append(profile_name_map.get(profile_var, ""))
-
-        block = {
-            "param_name": param_name,
-            "bracket_var": bracket_var,
-            "create_flag": create_flag,
-            "start_line": start_idx + 1,
-            "end_line": end_idx,
-            "create_line_number": start_idx + create_line_offset + 1 if create_line_offset is not None else None,
-            "create_line": create_line,
-            "block_text": block_text,
-            "bracket_type": bracket_type,
-            "base_element": base_element,
-            "surfaces1": surfaces1,
-            "surfaces2": surfaces2,
-            "sf1_end_elements": sf1_end_elements,
-            "related_vars": related_vars,
-            "related_profiles": related_profiles,
-            "related_profile_names": related_profile_names,
-        }
-        block["failed_signature"] = _build_failed_signature(
-            bracket_type, base_element, surfaces1, surfaces2
-        )
-        block["failed_family_signature"] = _build_failed_family_signature(block)
-        blocks.append(block)
-
-    return blocks
-
-
-def _find_bracket_block_by_line(blocks: list[dict], line_number: Optional[int]) -> Optional[dict]:
-    """行番号を含むか直前にあるブラケットブロックを探す。"""
-    if not line_number:
-        return None
-
-    containing = None
-    nearest_previous = None
-    for block in blocks:
-        if block["start_line"] <= line_number <= block["end_line"]:
-            containing = block
-            break
-        if block["start_line"] <= line_number:
-            nearest_previous = block
-    return containing or nearest_previous
-
-
-def _find_bracket_usage_lines(code: str, bracket_var: str) -> list[dict]:
-    """bracket 変数の使用箇所を列挙する。"""
-    usages = []
-    if not bracket_var:
-        return usages
-
-    for idx, line in enumerate(code.split('\n'), 1):
-        if bracket_var not in line:
-            continue
-        if re.search(rf'^\s*{re.escape(bracket_var)}\s*=\s*part\.CreateBracket\(', line):
-            continue
-        usages.append({"line_number": idx, "line": line.strip()})
-    return usages
-
-
-def build_bracket_failure_diagnostics(full_code: str, error_line_info: dict, bracket_context: dict) -> dict:
-    """生の traceback をブラケット失敗候補に正規化し、構造化情報を返す。"""
-    blocks = collect_bracket_blocks(full_code)
-    by_param = {block["param_name"]: block for block in blocks if block.get("param_name")}
-    by_var = {block["bracket_var"]: block for block in blocks if block.get("bracket_var")}
-
-    raw_line_number = error_line_info.get("line_number")
-    raw_exception_type = error_line_info.get("exception_type")
-    raw_exception_message = error_line_info.get("exception_message", "")
-    selected_block = None
-    normalization_note = ""
-    failed_bracket_var = ""
-    failed_bracket_param = bracket_context.get("bracket_param_name", "")
-    usage_lines = []
-    effective_line_number = raw_line_number
-    effective_error_line = bracket_context.get("error_line", "")
-
-    if raw_exception_type == "NameError":
-        name_match = re.search(r"name '(\w+)' is not defined", raw_exception_message or "")
-        if name_match:
-            failed_bracket_var = name_match.group(1)
-            usage_lines = _find_bracket_usage_lines(full_code, failed_bracket_var)
-            selected_block = by_var.get(failed_bracket_var)
-            if selected_block:
-                failed_bracket_param = selected_block.get("param_name", "")
-                effective_line_number = selected_block.get("create_line_number") or selected_block.get("start_line")
-                effective_error_line = selected_block.get("create_line") or effective_error_line
-                normalization_note = (
-                    f"NameError を二次障害として扱い、{failed_bracket_var} を生成する "
-                    f"{failed_bracket_param} の CreateBracket 候補に正規化しました。"
-                )
-            else:
-                normalization_note = (
-                    f"NameError の未定義変数 {failed_bracket_var} を検出しましたが、対応する "
-                    "CreateBracket 定義を逆引きできませんでした。生成漏れの可能性があります。"
-                )
-
-    if not selected_block and failed_bracket_param:
-        selected_block = by_param.get(failed_bracket_param)
-
-    if not selected_block:
-        selected_block = _find_bracket_block_by_line(blocks, raw_line_number)
-
-    if selected_block and not failed_bracket_var:
-        failed_bracket_var = selected_block.get("bracket_var", "")
-    if selected_block and not failed_bracket_param:
-        failed_bracket_param = selected_block.get("param_name", "")
-    if selected_block and not normalization_note and raw_exception_type != "NameError":
-        effective_line_number = selected_block.get("create_line_number") or effective_line_number
-        effective_error_line = selected_block.get("create_line") or effective_error_line
-
-    diagnostics = {
-        "raw_exception_type": raw_exception_type,
-        "raw_exception_message": raw_exception_message,
-        "raw_line_number": raw_line_number,
-        "line_number": effective_line_number,
-        "error_line": effective_error_line,
-        "normalization_note": normalization_note,
-        "failed_bracket_var": failed_bracket_var,
-        "failed_bracket_param": failed_bracket_param,
-        "failed_bracket_block": selected_block.get("block_text", "") if selected_block else "",
-        "failed_signature": selected_block.get("failed_signature", "") if selected_block else "",
-        "failed_family_signature": selected_block.get("failed_family_signature", "") if selected_block else "",
-        "bracket_type": selected_block.get("bracket_type", "") if selected_block else "",
-        "base_element": selected_block.get("base_element", "") if selected_block else "",
-        "surfaces1": selected_block.get("surfaces1", "") if selected_block else "",
-        "surfaces2": selected_block.get("surfaces2", "") if selected_block else "",
-        "sf1_end_elements": selected_block.get("sf1_end_elements", "") if selected_block else "",
-        "related_vars": selected_block.get("related_vars", []) if selected_block else [],
-        "related_profiles": selected_block.get("related_profiles", []) if selected_block else [],
-        "related_profile_names": selected_block.get("related_profile_names", []) if selected_block else [],
-        "usage_lines": usage_lines,
-    }
-
-    summary_parts = []
-    if diagnostics["failed_signature"]:
-        summary_parts.append(f"署名={diagnostics['failed_signature']}")
-    if diagnostics["failed_bracket_param"]:
-        summary_parts.append(f"param={diagnostics['failed_bracket_param']}")
-    if diagnostics["failed_bracket_var"]:
-        summary_parts.append(f"var={diagnostics['failed_bracket_var']}")
-    if diagnostics["normalization_note"]:
-        summary_parts.append(diagnostics["normalization_note"])
-    diagnostics["failure_summary"] = " / ".join(summary_parts)
-    return diagnostics
-
-
-def _extract_bracket_section_from_script(code: str) -> str:
-    """スクリプトからブラケットセクションのみを抽出する。"""
-    idx = code.find(BRACKET_SECTION_MARKER)
-    if idx != -1:
-        return code[idx:].strip()
-
-    match = BRACKET_PARAM_DEFINITION_RE.search(code)
-    if match:
-        return code[match.start():].strip()
-    return ""
-
-
-def _render_validation_issues(issues: list[dict]) -> str:
-    """validator エラーを stderr 風に整形する。"""
-    lines = ["Pre-execution validator failed."]
-    for issue in issues:
-        prefix = issue.get("level", "error").upper()
-        line_no = issue.get("line")
-        if line_no:
-            lines.append(f"{prefix} line {line_no}: {issue.get('message', '')}")
-        else:
-            lines.append(f"{prefix}: {issue.get('message', '')}")
-    return "\n".join(lines)
-
-
-def _is_fore_aft_mismatch(profile_names: list[str]) -> bool:
-    """関連部材名から Fore/Aft 不整合を簡易検出する。"""
-    wall_name = next((name for name in profile_names if "Wall.Fore." in name or "Wall.Aft." in name), "")
-    deck_name = next((name for name in profile_names if "Deck." in name), "")
-    if not wall_name or not deck_name:
-        return False
-
-    wall_dl = re.search(r'DL\d+', wall_name)
-    deck_dl = re.search(r'DL\d+', deck_name)
-    if wall_dl and deck_dl and wall_dl.group() != deck_dl.group():
-        return False
-
-    if "Wall.Fore." in wall_name and (deck_name.endswith(".A") or deck_name.endswith(".AP")):
-        return True
-    if "Wall.Aft." in wall_name and (deck_name.endswith(".F") or deck_name.endswith(".FP")):
-        return True
-    return False
-
-
-def validate_generated_script(
-    script_code: str,
-    blocked_signatures: set[str],
-    blocked_family_signatures: set[str],
-) -> tuple[str, list[dict]]:
-    """ブラケットコードを実行前に静的検証し、必要なら自動修正する。"""
-    issues = []
-    bracket_section = _extract_bracket_section_from_script(script_code)
-    if not bracket_section:
-        return script_code, issues
-
-    structure = extract_script_structure(script_code)
-    syntax_issues = validate_bracket_section(bracket_section, structure)
-    auto_fixable = [issue for issue in syntax_issues if issue.get("auto_fix")]
-    if auto_fixable:
-        fixed_section = auto_fix_bracket_section(bracket_section, auto_fixable)
-        if fixed_section != bracket_section:
-            script_code = merge_bracket_section(script_code, fixed_section)
-            bracket_section = fixed_section
-        syntax_issues = validate_bracket_section(bracket_section, structure)
-    issues.extend(syntax_issues)
-
-    blocks = collect_bracket_blocks(script_code)
-    created_brackets = {block["bracket_var"] for block in blocks if block.get("bracket_var")}
-    profile_name_map = _extract_profile_name_map(script_code)
-
-    for idx, line in enumerate(script_code.split('\n'), 1):
-        usage_match = re.search(r'part\.(SetElementColor|BlankElement)\(\s*(bracket\w+)\s*,', line)
-        if usage_match and usage_match.group(2) not in created_brackets:
-            issues.append({
-                "level": "error",
-                "line": idx,
-                "message": f"{usage_match.group(1)} が未定義の {usage_match.group(2)} を参照しています",
-                "auto_fix": None,
-            })
-
-    for block in blocks:
-        line_number = block.get("create_line_number") or block.get("start_line")
-        signature = block.get("failed_signature", "")
-        family_signature = block.get("failed_family_signature", "")
-        if signature and signature in blocked_signatures:
-            issues.append({
-                "level": "error",
-                "line": line_number,
-                "message": f"blacklist 済みの失敗署名を再生成しています: {signature}",
-                "auto_fix": None,
-            })
-        elif family_signature and family_signature in blocked_family_signatures:
-            issues.append({
-                "level": "error",
-                "line": line_number,
-                "message": f"近縁 blacklist に該当する候補を再生成しています: {family_signature}",
-                "auto_fix": None,
-            })
-
-        if block.get("bracket_type") == "1505" and not block.get("sf1_end_elements"):
-            issues.append({
-                "level": "error",
-                "line": line_number,
-                "message": f"{block.get('param_name')} は BracketType 1505 ですが Sf1EndElements がありません",
-                "auto_fix": None,
-            })
-
-        surfaces1 = _normalize_signature_part(block.get("surfaces1", ""))
-        surfaces2 = _normalize_signature_part(block.get("surfaces2", ""))
-        related_names = []
-        for profile_var in block.get("related_profiles", []):
-            name = profile_name_map.get(profile_var, "")
-            if name:
-                related_names.append(name)
-
-        if (
-            block.get("bracket_type") == "1501"
-            and ",FL" in surfaces1
-            and ",FL" in surfaces2
-            and any("Wall.Side." in name for name in related_names)
-        ):
-            issues.append({
-                "level": "error",
-                "line": line_number,
-                "message": f"{block.get('param_name')} は Side 系の未実績 1501 / FL-FL パターンです",
-                "auto_fix": None,
-            })
-
-        if _is_fore_aft_mismatch(related_names):
-            issues.append({
-                "level": "error",
-                "line": line_number,
-                "message": f"{block.get('param_name')} は Fore/Aft の方向整合に違反しています",
-                "auto_fix": None,
-            })
-
-    return script_code, issues
-
-
 def extract_bracket_failure_context(full_code: str, error_line_info: dict, context_lines: int = 50) -> dict:
     """
     失敗行周辺のブラケットパラメータ定義を抽出します。
@@ -1172,7 +766,6 @@ def fix_bracket_code(
     stderr: str,
     error_line_info: dict,
     bracket_context: dict,
-    failure_diagnostics: Optional[dict] = None,
     reference_code: Optional[str] = None,
     llm=None
     ) -> str:
@@ -1211,26 +804,14 @@ def fix_bracket_code(
         # プロンプトの準備
         prompt_vars = {
             "error_traceback": stderr,
-            "error_line_number": (
-                failure_diagnostics.get('line_number')
-                if failure_diagnostics else error_line_info.get('line_number', 'unknown')
-            ),
-            "error_line": (
-                failure_diagnostics.get('error_line')
-                if failure_diagnostics else bracket_context.get('error_line', '')
-            ),
+            "error_line_number": error_line_info.get('line_number', 'unknown'),
+            "error_line": bracket_context.get('error_line', ''),
             "context_before": bracket_context.get('context_before', ''),
             "context_after": bracket_context.get('context_after', ''),
             "context_lines": 50,
-            "bracket_param_section": (
-                failure_diagnostics.get('failed_bracket_block')
-                if failure_diagnostics and failure_diagnostics.get('failed_bracket_block')
-                else bracket_param_section
-            ),
+            "bracket_param_section": bracket_param_section,
             "reference_snippet": reference_snippet,
-            "full_code": full_code,
-            "failed_signature": failure_diagnostics.get('failed_signature', '') if failure_diagnostics else "",
-            "normalization_note": failure_diagnostics.get('normalization_note', '') if failure_diagnostics else "",
+            "full_code": full_code
         }
         
         # 外部ファイルからブラケット修正テンプレートを読込
@@ -1512,8 +1093,6 @@ def process_generation_loop(
         # 3-agentモード用: 分析ドキュメントを保持（エラー修正ループで再利用）
         analysis_document = None
         error_history = []  # 過去試行の失敗履歴（リトライ時に LLM へ渡す）
-        blocked_signatures = set()
-        blocked_family_signatures = set()
         original_instruction = question  # Agent 1 再分析用に元の指示を保持
 
         for attempt in range(max_retries + 1):
@@ -1595,34 +1174,22 @@ def process_generation_loop(
 
                 error_line_info = parse_traceback(error_output)
                 bracket_context = extract_bracket_failure_context(current_code, error_line_info)
-                failure_diagnostics = build_bracket_failure_diagnostics(
-                    current_code, error_line_info, bracket_context
-                )
-                error_entry = {
-                    "attempt": attempt,
-                    "stderr": error_output,
-                    "bracket_param_section": (
-                        failure_diagnostics.get("failed_bracket_block")
-                        or bracket_context.get("bracket_param_definition", "")
-                    ),
-                    "error_type": error_line_info.get("exception_type", ""),
-                    "failed_signature": failure_diagnostics.get("failed_signature", ""),
-                    "failed_family_signature": failure_diagnostics.get("failed_family_signature", ""),
-                    "failure_summary": failure_diagnostics.get("failure_summary", ""),
-                }
-                error_history.append(error_entry)
-                if error_entry["failed_signature"]:
-                    blocked_signatures.add(error_entry["failed_signature"])
-                if error_entry["failed_family_signature"]:
-                    blocked_family_signatures.add(error_entry["failed_family_signature"])
 
                 if pipeline_mode == "three" and analysis_document:
                     # 3-agentエラー修正: 成功部分を保持し、失敗箇所以降のみ再生成
-                    error_line_num = failure_diagnostics.get("line_number") or error_line_info.get("line_number")
+                    error_line_num = error_line_info.get("line_number")
                     successful_count, total_count, failed_param_name = count_successful_brackets(
                         current_code, error_line_num or 0
                     )
                     print(f"--- Brackets: {successful_count}/{total_count} succeeded, failed at: {failed_param_name} ---")
+
+                    # 現在の失敗情報を履歴に追記
+                    error_history.append({
+                        "attempt": attempt,
+                        "stderr": error_output,
+                        "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
+                        "error_type": error_line_info.get("exception_type", ""),
+                    })
 
                     # 成功部分を保持（エラー行から遡ってブラケット定義開始行を見つける）
                     preserved_code = None
@@ -1634,31 +1201,12 @@ def process_generation_loop(
 
                     error_ctx = {
                         "stderr": error_output,
-                        "line_number": failure_diagnostics.get("line_number", "unknown"),
-                        "error_line": failure_diagnostics.get("error_line", ""),
-                        "bracket_param_section": (
-                            failure_diagnostics.get("failed_bracket_block")
-                            or bracket_context.get("bracket_param_definition", "")
-                        ),
+                        "line_number": error_line_info.get("line_number", "unknown"),
+                        "error_line": bracket_context.get("error_line", ""),
+                        "bracket_param_section": bracket_context.get("bracket_param_definition", ""),
                         "error_history": error_history,
                         "successful_bracket_count": successful_count,
-                        "failed_bracket_name": (
-                            failure_diagnostics.get("failed_bracket_param")
-                            or failed_param_name
-                        ),
-                        "failed_bracket_var": failure_diagnostics.get("failed_bracket_var", ""),
-                        "failed_signature": failure_diagnostics.get("failed_signature", ""),
-                        "failed_family_signature": failure_diagnostics.get("failed_family_signature", ""),
-                        "bracket_type": failure_diagnostics.get("bracket_type", ""),
-                        "base_element": failure_diagnostics.get("base_element", ""),
-                        "surfaces1": failure_diagnostics.get("surfaces1", ""),
-                        "surfaces2": failure_diagnostics.get("surfaces2", ""),
-                        "sf1_end_elements": failure_diagnostics.get("sf1_end_elements", ""),
-                        "related_profile_names": failure_diagnostics.get("related_profile_names", []),
-                        "normalization_note": failure_diagnostics.get("normalization_note", ""),
-                        "usage_lines": failure_diagnostics.get("usage_lines", []),
-                        "blacklisted_signatures": sorted(blocked_signatures),
-                        "blacklisted_family_signatures": sorted(blocked_family_signatures),
+                        "failed_bracket_name": failed_param_name,
                     }
 
                     # === Agent 1 再分析 ===
@@ -1700,7 +1248,6 @@ def process_generation_loop(
                         error_output,
                         error_line_info,
                         bracket_context,
-                        failure_diagnostics,
                         reference_code,
                         llm=llm
                     )
@@ -1729,29 +1276,8 @@ def process_generation_loop(
 
                     if script_code:
                         current_code = script_code
-                        current_code, validation_issues = validate_generated_script(
-                            current_code,
-                            blocked_signatures=blocked_signatures,
-                            blocked_family_signatures=blocked_family_signatures,
-                        )
-                        script_code = current_code
-
-                        if validation_issues:
-                            error_output = _render_validation_issues(validation_issues)
-                            print("\n--- Pre-execution validation failed ---")
-                            print(error_output)
 
                         save_script_file(output_path, script_code, attempt, keep_attempts)
-
-                        if validation_issues:
-                            if keep_attempts and attempt > 0:
-                                save_error_log(output_path, error_output, attempt)
-                            if attempt == max_retries:
-                                print("\n--- Max retries reached. Final script saved without execution. ---")
-                                if keep_attempts and error_output:
-                                    save_error_log(output_path, error_output)
-                                break
-                            continue
 
                         if keep_attempts and attempt > 0 and error_output:
                             save_error_log(output_path, error_output, attempt)
@@ -1948,3 +1474,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
